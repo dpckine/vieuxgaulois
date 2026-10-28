@@ -5543,7 +5543,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
       '<div class="cred-cab"><img src="' + ESCUDO + '" alt=""><div><b>VIEUX GAULOIS</b><small>Handball Club</small></div>' +
       '<div class="derecha"><small>Temporada</small><b>' + ANIO + '</b></div></div><div class="franja" aria-hidden="true"><i></i><i></i><i></i></div>' +
       '<div class="cred-cuerpo"><div class="crece"><div class="cred-dato"><small>Jugador</small></div><h3>' + h(j.nombre) + '</h3>' + dato('RUT', h(C.formatearRut(j.rut))) + '</div>' + avatarFoto(j, 'cred-foto') + '</div>' +
-      '<div class="cred-campos">' + dato('Categoría', h(j.categoria || '–')) + dato('N°', j.numero != null ? h(j.numero) : '–') + dato('Estado', 'Activo', ' class="cred-activo"') + '</div>' +
+      '<div class="cred-campos">' + dato('Categoría', h(C.baseCategoria(j.categoria) || '–')) + dato('N°', j.numero != null ? h(j.numero) : '–') + dato('Estado', 'Activo', ' class="cred-activo"') + '</div>' +
       '<div class="cred-codigo">' + codigoCredencial() + '<small>Síguenos · @vieuxgaulois</small><span class="reloj" data-reloj>' + h(relojTexto()) + '</span></div></div>' +
       '<p class="ayuda">Muéstrala en los convenios del club. La fecha y hora corren en vivo: así se nota que no es una captura de pantalla.</p>' +
       '<div class="modal-pie columna"><button class="btn primario ancho" data-act="historiaCredencial" data-rut="' + h(j.rut) + '">' + icono('compartir') + ' Compartir en historias</button>' +
@@ -5619,7 +5619,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
 
     // Nombre y datos
     ajustar(j.nombre, cw - 120, 900, 76, 1); texto(j.nombre, W / 2, fy + fh + 120);
-    const cols = [['CATEGORÍA', j.categoria || '–'], ['ESTADO', 'Activo']];
+    const cols = [['CATEGORÍA', C.baseCategoria(j.categoria) || '–'], ['ESTADO', 'Activo']];
     cols.forEach(([etq, val], i) => {
       const x = cx + cw * (i ? 0.75 : 0.36);
       fuente(800, 24, 5); texto(etq, x, fy + fh + 200, 'center', ORO);
