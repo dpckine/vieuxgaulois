@@ -9,6 +9,8 @@
   <meta name="apple-mobile-web-app-title" content="Vieux Gaulois">
   <title>Vieux Gaulois Handball</title>
   <link rel="icon" href="">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icono-192.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,400..900&display=swap">
   <style>
@@ -3460,6 +3462,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
      */
     async cambiar(fn) {
       const F = this.fb.F;
+      let avisos = [];
       try {
         const nuevo = await F.runTransaction(this.fb.fs, async (tx) => {
           const r = await this.leer(tx);
@@ -3485,6 +3488,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
           // Fotos: fuera de la base, una por documento.
           Object.keys(db.fotos || {}).forEach((id) => { if (!(antes.fotos || {})[id]) tx.set(this.ref('fotos', id), { d: db.fotos[id] }); this.fotos[id] = db.fotos[id]; });
           (db.fotosBorradas || []).forEach((id) => { tx.delete(this.ref('fotos', id)); delete this.fotos[id]; });
+          avisos = db.notificar || [];
           db.fotos = {}; db.fotosBorradas = []; db.notificar = [];
           // Guardar en trozos
           const json = JSON.stringify(db), rev = r.rev + 1;
@@ -3495,6 +3499,8 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
           return { db, rev };
         });
         if (nuevo) { this.db = nuevo.db; this.rev = nuevo.rev; }
+        // Notificaciones push (funciones de Vercel). Si no están configuradas, la acción igual queda guardada.
+        if (nuevo && avisos.length) this.pedir('POST', 'api/push/enviar', { notificar: avisos.slice(0, 20) }).catch(() => {});
       } catch (e) {
         // Errores de Firebase traen code; los de las reglas del club (applyAction) sólo el mensaje.
         throw e && e.code ? this.error(e) : this.error(new ErrorApi((e && e.message) || 'Error'));
@@ -3502,6 +3508,20 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     },
 
     async estado() { return this.id && this.db ? C.viewFor(this.db, this.id) : null; },
+
+    // Llamada a las funciones de api/ con el token de Firebase de la sesión.
+    async pedir(metodo, ruta, cuerpo) {
+      const u = this.fb && this.fb.auth.currentUser;
+      if (!u) throw new ErrorApi('Tu sesión ya no es válida, vuelve a entrar', 401);
+      const r = await fetch(ruta, {
+        method: metodo,
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + await u.getIdToken() },
+        body: cuerpo ? JSON.stringify(cuerpo) : undefined,
+      });
+      const datos = await r.json().catch(() => ({}));
+      if (!r.ok) throw new ErrorApi(datos.error || 'Error de conexión', r.status);
+      return datos;
+    },
 
     async accion(type, payload) {
       const preparada = await C.prepararAccion({ type, payload }, sha256);
@@ -5731,9 +5751,10 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
   // ---------- Notificaciones push ----------
   const PUSH_OK = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   const esIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent);
+  // Con servidor propio o con Firebase (funciones de Vercel en api/push).
+  const apiPush = (metodo, ruta, cuerpo) => (S.modo === 'nube' ? Nube : Servidor).pedir(metodo, ruta, cuerpo);
   function estadoPush() {
-    if (S.modo === 'nube') return ['no', 'Aún no disponibles'];
-    if (S.modo !== 'servidor') return ['demo', 'Con la app publicada'];
+    if (S.modo !== 'servidor' && S.modo !== 'nube') return ['demo', 'Con la app publicada'];
     if (!PUSH_OK()) return ['no', esIOS() ? 'Agrega la app a tu inicio' : 'No disponible'];
     if (Notification.permission === 'denied') return ['bloqueado', 'Bloqueadas'];
     return leerLS('vg_push') === S.view.yo && Notification.permission === 'granted' ? ['activo', 'Activadas'] : ['inactivo', 'Desactivadas'];
@@ -5749,16 +5770,16 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
       if (est === 'activo') {
         const reg = await navigator.serviceWorker.getRegistration();
         const sub = reg && await reg.pushManager.getSubscription();
-        if (sub) { await Servidor.pedir('POST', 'api/push/quitar', { endpoint: sub.endpoint }); await sub.unsubscribe(); }
+        if (sub) { await apiPush('POST', 'api/push/quitar', { endpoint: sub.endpoint }); await sub.unsubscribe(); }
         guardarLS('vg_push', null);
         toast('Notificaciones desactivadas');
       } else {
         if (await Notification.requestPermission() !== 'granted') { toast('No diste permiso para notificaciones', 'error'); return; }
         await navigator.serviceWorker.register('sw.js');
         const reg = await navigator.serviceWorker.ready;
-        const { clave } = await Servidor.pedir('GET', 'api/push/clave');
+        const { clave } = await apiPush('GET', 'api/push/clave');
         const sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uBytes(clave) });
-        await Servidor.pedir('POST', 'api/push/suscribir', { sub: sub.toJSON() });
+        await apiPush('POST', 'api/push/suscribir', { sub: sub.toJSON() });
         guardarLS('vg_push', S.view.yo);
         toast('Listo: te avisaremos de citaciones, mensajes, avisos y cuotas', 'ok');
       }
@@ -6413,6 +6434,8 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
         // Si Firebase no carga (sin conexión), se reintenta al iniciar sesión.
         S.modo = 'nube'; S.demo = false;
         await Nube.iniciar().catch(() => {});
+        // Hace la app instalable y recibe las notificaciones.
+        if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('sw.js').catch(() => {});
       } else {
         if (window.VG_SOLO_DEMO) throw new Error('sin servidor');
         const r = await fetch('api/ping', { cache: 'no-store' });

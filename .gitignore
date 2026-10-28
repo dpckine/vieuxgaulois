@@ -1,1 +1,4 @@
 .claude/
+claves-vercel.txt
+node_modules/
+.vercel/

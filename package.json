@@ -1,0 +1,10 @@
+{
+  "name": "vieux-gaulois",
+  "private": true,
+  "description": "App del club Vieux Gaulois Handball. Las funciones de /api (Vercel) envían las notificaciones push.",
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "web-push": "^3.6.7"
+  }
+}
