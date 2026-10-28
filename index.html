@@ -721,22 +721,20 @@ body.sin-sesion .toast { bottom: calc(24px + var(--seguro-abajo)); }
 .cred-cuerpo h3 { font-size: 23px; font-weight: 900; line-height: 1.1; margin: 2px 0 12px; overflow-wrap: anywhere; }
 .cred-dato b { display: block; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .cred-foto { flex: none; width: 84px; height: 104px; border-radius: 14px; object-fit: cover; border: 2px solid var(--borde); background: rgba(255, 255, 255, .12); font-size: 28px; color: #fff; box-shadow: 0 6px 16px rgba(0, 0, 0, .35); }
-.cred-campos { display: grid; grid-template-columns: 1.6fr .8fr 1fr; gap: 10px; padding: 8px 18px 16px; }
-.cred-campos.dos { grid-template-columns: 1fr auto; }
+/* Primera fila a todo el ancho (categoría, cargo...); debajo posición y N°. */
+.cred-campos { display: grid; grid-template-columns: 1fr auto; gap: 10px 16px; padding: 8px 18px 16px; }
+.cred-campos .cred-dato:first-child { grid-column: 1 / -1; }
 .cred-dato b { overflow-wrap: anywhere; }
-.cred-campos .cred-dato:last-child { text-align: right; }
+.cred-campos .cred-dato:last-child:not(:first-child) { text-align: right; }
 .historia-vista { display: block; width: 100%; max-width: 260px; margin: 4px auto 0; border-radius: 18px; box-shadow: var(--sombra-3); }
 .historia-vista + .ayuda { text-align: center; margin-top: 12px; }
 .credencial + .ayuda { margin-top: 16px; text-align: center; }
-.cred-dato b.cred-activo { display: inline-flex; align-items: center; gap: 6px; }
-.cred-activo::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #6EE7A0; box-shadow: 0 0 0 3px rgba(110, 231, 160, .25); animation: latido 2s ease-in-out infinite; }
 .cred-codigo { margin: 0 18px 18px; padding: 14px 14px 10px; border-radius: 16px; background: #fff; color: #0B1A4A; text-align: center; box-shadow: 0 4px 14px rgba(0, 0, 0, .25); }
 .cred-codigo a { display: block; width: max-content; margin: 0 auto; }
 .cred-codigo svg { display: block; width: 128px; height: 128px; margin: 0 auto; }
 .cred-codigo small { display: block; font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #5A6280; margin-top: 8px; }
 .reloj { display: block; font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 800; color: #0B1A4A; margin-top: 2px; }
-@keyframes latido { 50% { opacity: .45; } }
-@media (prefers-reduced-motion: reduce) { .credencial, .credencial::before, .cred-activo::before { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .credencial, .credencial::before { animation: none; } }
 
 /* ---------- Estadísticas ---------- */
 .tabla.est tr.yo td { background: var(--primario-cont); color: var(--sobre-primario-cont); font-weight: 700; }
@@ -5593,7 +5591,8 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     if (u.rol === 'entrenador') return { titulo: 'Entrenador', rut, campos: [['Cargo', 'Entrenador']] };
     if (u.rol === 'directiva') return { titulo: u.cargo || 'Directiva', rut, campos: [['Rol', 'Directiva']] };
     if (u.rol === 'apoderado') return { titulo: 'Apoderado', rut, campos: [['Apoderado de', (u.pupilos || []).join(', ') || '–']] };
-    return { titulo: ramaCredencial(u) === 'Femenino' ? 'Jugadora' : 'Jugador', rut, numero: u.numero, campos: [['Categoría', C.baseCategoria(u.categoria) || '–'], ['N°', u.numero != null ? String(u.numero) : '–']] };
+    return { titulo: ramaCredencial(u) === 'Femenino' ? 'Jugadora' : 'Jugador', rut, numero: u.numero,
+      campos: [['Categoría', C.baseCategoria(u.categoria) || '–'], ['Posición', u.posicion || '–'], ['N°', u.numero != null ? String(u.numero) : '–']] };
   }
   const ramaCredencial = (u) => C.ramaCategoria(u.categoria || '');
   const estiloTema = (t) => '--f1:' + t.f[0] + ';--f2:' + t.f[1] + ';--f3:' + t.f[2] + t.g.map((c, i) => (c ? ';--g' + (i + 1) + ':' + c : '')).join('') + ';--etq:' + t.etq + ';--borde:' + t.borde + (t.marco ? ';--marco:' + t.marco : '');
@@ -5615,7 +5614,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
       '<div class="cred-cab"><img src="' + ESCUDO + '" alt=""><div><b>VIEUX GAULOIS</b><small>Handball Club</small></div>' +
       '<div class="derecha"><small>Temporada</small><b>' + ANIO + '</b></div></div><div class="franja" aria-hidden="true"><i></i><i></i><i></i></div>' +
       '<div class="cred-cuerpo"><div class="crece"><div class="cred-dato"><small>' + h(d.titulo) + '</small></div><h3>' + h(u.nombre) + '</h3>' + (d.rut ? dato('RUT', d.rut) : '') + '</div>' + avatarFoto(u, 'cred-foto') + '</div>' +
-      '<div class="cred-campos' + (d.campos.length === 1 ? ' dos' : '') + '">' + d.campos.map(([e, v]) => dato(e, v)).join('') + dato('Estado', 'Activo', ' class="cred-activo"') + '</div>' +
+      '<div class="cred-campos">' + d.campos.map(([e, v]) => dato(e, v)).join('') + '</div>' +
       '<div class="cred-codigo">' + codigoCredencial() + '<small>Síguenos · @vieuxgaulois</small><span class="reloj" data-reloj>' + h(relojTexto()) + '</span></div></div>' +
       '<p class="ayuda">Muéstrala en los convenios del club. La fecha y hora corren en vivo: así se nota que no es una captura de pantalla.</p>' +
       '<div class="modal-pie columna"><button class="btn primario ancho" data-act="historiaCredencial" data-rut="' + h(u.rut) + '">' + icono('compartir') + ' Compartir en historias</button>' +
@@ -5694,12 +5693,12 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     // Nombre y datos
     fuente(800, 26, 6); texto(d.titulo.toUpperCase(), W / 2, fy + fh + 62, 'center', tema.etq);
     ajustar(j.nombre, cw - 120, 900, 76, 1); texto(j.nombre, W / 2, fy + fh + 136);
-    const cols = [[d.campos[0][0].toUpperCase(), d.campos[0][1]], ['ESTADO', 'Activo']];
+    // El N° ya va en el círculo de la foto.
+    const cols = d.campos.filter(([e]) => e !== 'N°');
     cols.forEach(([etq, val], i) => {
-      const x = cx + cw * (i ? 0.75 : 0.36);
-      fuente(800, 24, 5); texto(etq, x, fy + fh + 206, 'center', tema.etq);
-      ajustar(val, cw * 0.5, 700, 40); texto(val, x + (i ? 14 : 0), fy + fh + 258);
-      if (i) { g.beginPath(); g.arc(x - g.measureText(val).width / 2 - 8, fy + fh + 244, 11, 0, Math.PI * 2); g.fillStyle = '#6EE7A0'; g.fill(); }
+      const x = cols.length === 1 ? W / 2 : cx + cw * (i ? 0.73 : 0.29);
+      fuente(800, 24, 5); texto(etq.toUpperCase(), x, fy + fh + 206, 'center', tema.etq);
+      ajustar(val, cols.length === 1 ? cw - 120 : cw * 0.42, 700, 40); texto(val, x, fy + fh + 258);
     });
 
     // QR al Instagram
