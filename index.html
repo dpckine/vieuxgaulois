@@ -694,25 +694,37 @@ body.sin-sesion .toast { bottom: calc(24px + var(--seguro-abajo)); }
 .perfil-foto img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
 .perfil-foto span { position: absolute; right: -6px; bottom: -4px; min-width: 28px; height: 28px; padding: 0 6px; border-radius: 14px; background: var(--marca-rojo); color: #fff; font-weight: 900; font-size: 14px; display: grid; place-items: center; box-shadow: 0 0 0 2px var(--marca-oro); }
 .perfil-foto span:empty { display: none; }
-.credencial { border-radius: 20px; overflow: hidden; color: #fff; background: var(--barra-sup); box-shadow: var(--sombra-3); position: relative; }
-.credencial::after { content: ""; position: absolute; right: -30px; top: 40px; width: 170px; height: 180px; background: var(--escudo, url(escudo.png)) center/contain no-repeat; opacity: .12; pointer-events: none; }
-.cred-cab { display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: rgba(0, 0, 0, .18); }
-.cred-cab img { width: 40px; }
-.cred-cab b { display: block; letter-spacing: .08em; font-size: 15px; }
-.cred-cab small { color: var(--marca-oro); font-weight: 700; letter-spacing: .14em; text-transform: uppercase; font-size: 10px; }
-.cred-cab > span { font-size: 12px; font-weight: 700; background: var(--marca-oro); color: #271900; padding: 4px 10px; border-radius: 8px; }
-.cred-cuerpo { display: flex; gap: 16px; padding: 18px 16px 8px; align-items: center; position: relative; z-index: 1; }
-.cred-foto { flex: none; width: 104px; height: 128px; border-radius: 14px; object-fit: cover; border: 3px solid var(--marca-oro); background: rgba(255,255,255,.12); font-size: 32px; color: #fff; }
-.cred-cuerpo h3 { font-size: 20px; font-weight: 800; margin-bottom: 6px; }
-.cred-cuerpo p { margin: 3px 0; }
-.cred-cuerpo p small { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--marca-oro); font-weight: 700; }
-.cred-cuerpo p b { font-size: 15px; }
-.cred-pie { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 10px 16px 14px; position: relative; z-index: 1; }
-.cred-pie .insignia.ok { background: rgba(138, 217, 143, .22); color: #B5F2B8; }
-.cred-pie .insignia.mal { background: rgba(255, 90, 80, .25); color: #FFD0CC; }
-.reloj { margin-left: auto; font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 700; color: rgba(255,255,255,.85); animation: latido 2s ease-in-out infinite; }
-@keyframes latido { 50% { opacity: .55; } }
-@media (prefers-reduced-motion: reduce) { .reloj { animation: none; } }
+/* Credencial con aspecto de tarjeta de billetera digital (sólo se ve en la app). */
+.credencial { position: relative; max-width: 360px; margin: 6px auto 0; border-radius: 22px; overflow: hidden; color: #fff; isolation: isolate;
+  background: radial-gradient(120% 70% at 100% 0%, rgba(232, 177, 33, .28) 0%, transparent 55%), radial-gradient(90% 60% at 0% 100%, rgba(200, 16, 46, .35) 0%, transparent 60%), linear-gradient(160deg, #0B1A4A 0%, #14307A 55%, #0E2260 100%);
+  box-shadow: 0 18px 40px -8px rgba(11, 26, 74, .55), 0 2px 6px rgba(11, 26, 74, .3), inset 0 0 0 1px rgba(255, 255, 255, .12); animation: cred-entra .5s cubic-bezier(.2, .8, .2, 1); }
+.credencial::before { content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none; background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, .22) 48%, rgba(255, 255, 255, .05) 55%, transparent 65%); background-size: 250% 100%; animation: cred-brillo 4.5s ease-in-out infinite; }
+.credencial::after { content: ""; position: absolute; z-index: -1; right: -60px; top: 30px; width: 240px; height: 250px; background: var(--escudo, url(escudo.png)) center/contain no-repeat; opacity: .09; transform: rotate(-12deg); pointer-events: none; }
+@keyframes cred-brillo { 0% { background-position: 120% 0; } 60%, 100% { background-position: -120% 0; } }
+@keyframes cred-entra { from { opacity: 0; transform: perspective(800px) rotateX(14deg) translateY(16px) scale(.97); } }
+.cred-cab { display: flex; align-items: center; gap: 10px; padding: 16px 18px 12px; }
+.cred-cab img { width: 36px; height: 38px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .45)); }
+.cred-cab b { display: block; letter-spacing: .1em; font-size: 15px; font-weight: 900; }
+.cred-cab small, .cred-dato small { display: block; font-size: 9.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--marca-oro); }
+.cred-cab .derecha { margin-left: auto; text-align: right; }
+.cred-cab .derecha b { font-size: 17px; letter-spacing: .02em; }
+.credencial .franja { margin: 0 18px; border-radius: 4px; overflow: hidden; height: 3px; }
+.cred-cuerpo { display: flex; gap: 14px; align-items: flex-start; padding: 16px 18px 6px; }
+.cred-cuerpo .crece { min-width: 0; }
+.cred-cuerpo h3 { font-size: 23px; font-weight: 900; line-height: 1.1; margin: 2px 0 12px; overflow-wrap: anywhere; }
+.cred-dato b { display: block; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cred-foto { flex: none; width: 84px; height: 104px; border-radius: 14px; object-fit: cover; border: 2px solid var(--marca-oro); background: rgba(255, 255, 255, .12); font-size: 28px; color: #fff; box-shadow: 0 6px 16px rgba(0, 0, 0, .35); }
+.cred-campos { display: grid; grid-template-columns: 1.6fr .8fr 1fr; gap: 10px; padding: 8px 18px 16px; }
+.cred-campos .cred-dato:last-child { text-align: right; }
+.credencial + .ayuda { margin-top: 16px; text-align: center; }
+.cred-dato b.cred-activo { display: inline-flex; align-items: center; gap: 6px; }
+.cred-activo::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #6EE7A0; box-shadow: 0 0 0 3px rgba(110, 231, 160, .25); animation: latido 2s ease-in-out infinite; }
+.cred-codigo { margin: 0 18px 18px; padding: 14px 14px 10px; border-radius: 16px; background: #fff; color: #0B1A4A; text-align: center; box-shadow: 0 4px 14px rgba(0, 0, 0, .25); }
+.cred-codigo svg { display: block; width: 128px; height: 128px; margin: 0 auto; }
+.cred-codigo small { display: block; font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #5A6280; margin-top: 8px; }
+.reloj { display: block; font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 800; color: #0B1A4A; margin-top: 2px; }
+@keyframes latido { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .credencial, .credencial::before, .cred-activo::before { animation: none; } }
 
 /* ---------- Estadísticas ---------- */
 .tabla.est tr.yo td { background: var(--primario-cont); color: var(--sobre-primario-cont); font-weight: 700; }
@@ -5501,15 +5513,29 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
   // ---------- Credencial digital ----------
   function vistaCredencial(j) {
     // Sin estado de cuotas: la credencial se muestra en comercios y no debe exponer deudas.
+    const dato = (etq, val, extra) => '<div class="cred-dato"><small>' + etq + '</small><b' + (extra || '') + '>' + val + '</b></div>';
     return '<div class="credencial">' +
-      '<div class="cred-cab"><img src="' + ESCUDO + '" alt=""><div class="crece"><b>VIEUX GAULOIS</b><small>Handball Club</small></div><span>Temporada ' + ANIO + '</span></div><div class="franja" aria-hidden="true"><i></i><i></i><i></i></div>' +
-      '<div class="cred-cuerpo">' + avatarFoto(j, 'cred-foto') + '<div class="crece"><h3>' + h(j.nombre) + '</h3>' +
-      '<p><small>RUT</small><b>' + h(C.formatearRut(j.rut)) + '</b></p><p><small>Categoría</small><b>' + h(etiqueta(j)) + '</b></p>' +
-      (j.numero != null ? '<p><small>N° camiseta</small><b>' + h(j.numero) + '</b></p>' : '') + '</div></div>' +
-      '<div class="cred-pie">' + insignia('Jugador activo', 'ok') +
-      '<span class="reloj" data-reloj>' + h(relojTexto()) + '</span></div></div>' +
+      '<div class="cred-cab"><img src="' + ESCUDO + '" alt=""><div><b>VIEUX GAULOIS</b><small>Handball Club</small></div>' +
+      '<div class="derecha"><small>Temporada</small><b>' + ANIO + '</b></div></div><div class="franja" aria-hidden="true"><i></i><i></i><i></i></div>' +
+      '<div class="cred-cuerpo"><div class="crece"><div class="cred-dato"><small>Jugador</small></div><h3>' + h(j.nombre) + '</h3>' + dato('RUT', h(C.formatearRut(j.rut))) + '</div>' + avatarFoto(j, 'cred-foto') + '</div>' +
+      '<div class="cred-campos">' + dato('Categoría', h(etiqueta(j))) + dato('N°', j.numero != null ? h(j.numero) : '–') + dato('Estado', 'Activo', ' class="cred-activo"') + '</div>' +
+      '<div class="cred-codigo">' + codigoCredencial(j.rut) + '<small>Credencial digital · en vivo</small><span class="reloj" data-reloj>' + h(relojTexto()) + '</span></div></div>' +
       '<p class="ayuda">Muéstrala en los convenios del club. La fecha y hora corren en vivo: así se nota que no es una captura de pantalla.</p>' +
       '<div class="modal-pie columna"><button class="btn ancho" data-act="fotoPerfil" data-rut="' + h(j.rut) + '">' + icono('camara') + (j.foto ? ' Cambiar foto' : ' Agregar foto') + '</button></div>';
+  }
+  // Código decorativo con forma de QR, siempre el mismo para cada RUT (no se escanea).
+  function codigoCredencial(semilla) {
+    const N = 25;
+    let x = 0;
+    for (const ch of 'vg|' + semilla) x = (x * 31 + ch.charCodeAt(0)) >>> 0;
+    const azar = () => { x ^= x << 13; x ^= x >>> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; };
+    const enOjo = (f, c) => [[0, 0], [0, N - 7], [N - 7, 0]].some(([a, b]) => f >= a - 1 && f <= a + 7 && c >= b - 1 && c <= b + 7);
+    let d = '';
+    for (let f = 0; f < N; f++) for (let c = 0; c < N; c++) if (!enOjo(f, c) && azar() < 0.5) d += 'M' + c + ' ' + f + 'h1v1h-1z';
+    const ojo = ([f, c]) => 'M' + c + ' ' + f + 'h7v7h-7z M' + (c + 1) + ' ' + (f + 1) + 'v5h5v-5z M' + (c + 2) + ' ' + (f + 2) + 'h3v3h-3z';
+    return '<svg viewBox="-1 -1 ' + (N + 2) + ' ' + (N + 2) + '" aria-hidden="true" shape-rendering="crispEdges"><path fill="#0B1A4A" d="' + d + '"/>' +
+      '<path fill="#0B1A4A" fill-rule="evenodd" d="' + [[0, 0], [0, N - 7], [N - 7, 0]].map(ojo).join(' ') + '"/>' +
+      '<rect x="' + (N / 2 - 2.5) + '" y="' + (N / 2 - 2.5) + '" width="5" height="5" rx="1" fill="#fff"/><image href="' + ESCUDO + '" x="' + (N / 2 - 2.2) + '" y="' + (N / 2 - 2.3) + '" width="4.4" height="4.6"/></svg>';
   }
   const relojTexto = () => new Date().toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
   setInterval(() => { document.querySelectorAll('[data-reloj]').forEach((e) => { e.textContent = relojTexto(); }); }, 1000);
