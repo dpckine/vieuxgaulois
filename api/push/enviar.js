@@ -1,4 +1,4 @@
-const { fs, webpush, ErrorHttp, miembro, ruta } = require('../_comun');
+const { db, webpush, ErrorHttp, miembro, ruta } = require('../_comun');
 
 /*
  * Envía los avisos que dejó una acción (db.notificar de la lógica del club): [{ para: [ids], titulo, cuerpo, tab }].
@@ -13,7 +13,7 @@ module.exports = ruta('POST', async (req, { notificar }) => {
     const datos = JSON.stringify({ titulo: String(n.titulo || '').slice(0, 80), cuerpo: String(n.cuerpo || '').slice(0, 180), tab: String(n.tab || '').slice(0, 30) });
     // Firestore admite hasta 30 valores en una consulta "in".
     for (let i = 0; i < para.length; i += 30) {
-      const subs = await fs.collection('suscripciones').where('id', 'in', para.slice(i, i + 30)).get();
+      const subs = await db().collection('suscripciones').where('id', 'in', para.slice(i, i + 30)).get();
       await Promise.all(subs.docs.map((d) => webpush.sendNotification(d.data().sub, datos, { TTL: 86400 })
         .then(() => { enviados++; })
         // 404/410: el navegador ya no tiene esa suscripción.
