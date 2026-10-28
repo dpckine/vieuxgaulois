@@ -716,6 +716,8 @@ body.sin-sesion .toast { bottom: calc(24px + var(--seguro-abajo)); }
 .cred-foto { flex: none; width: 84px; height: 104px; border-radius: 14px; object-fit: cover; border: 2px solid var(--marca-oro); background: rgba(255, 255, 255, .12); font-size: 28px; color: #fff; box-shadow: 0 6px 16px rgba(0, 0, 0, .35); }
 .cred-campos { display: grid; grid-template-columns: 1.6fr .8fr 1fr; gap: 10px; padding: 8px 18px 16px; }
 .cred-campos .cred-dato:last-child { text-align: right; }
+.historia-vista { display: block; width: 100%; max-width: 260px; margin: 4px auto 0; border-radius: 18px; box-shadow: var(--sombra-3); }
+.historia-vista + .ayuda { text-align: center; margin-top: 12px; }
 .credencial + .ayuda { margin-top: 16px; text-align: center; }
 .cred-dato b.cred-activo { display: inline-flex; align-items: center; gap: 6px; }
 .cred-activo::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #6EE7A0; box-shadow: 0 0 0 3px rgba(110, 231, 160, .25); animation: latido 2s ease-in-out infinite; }
@@ -3759,6 +3761,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     medica: '<rect x="3.5" y="6" width="17" height="14" rx="2.5"/><path d="M9 6V4h6v2M12 10v6M9 13h6"/>',
     cumple: '<path d="M4 20h16v-7a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1zM4 16c2 1.2 4-1.2 6 0s4-1.2 6 0 3 .5 4 0"/><path d="M12 12V9M12 6.5c-.8-.6-.8-1.6 0-2.5.8.9.8 1.9 0 2.5z"/>',
     excel: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 11l5 6M14 11l-5 6"/>',
+    descargar: '<path d="M12 3v12M7.5 10.5L12 15l4.5-4.5M5 19h14"/>',
     whatsapp: '<path d="M4 20l1.2-3.6A8 8 0 1 1 8 19z"/><path d="M9 9.5c.3 2.3 2.2 4.2 4.5 4.5l1-1.2 1.8.8c-.3 1.2-1.3 1.9-2.5 1.8A6 6 0 0 1 8.4 10c-.1-1.2.6-2.2 1.8-2.5l.8 1.8z"/>',
     correo: '<rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/>',
   };
@@ -5522,13 +5525,118 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
       '<div class="cred-campos">' + dato('Categoría', h(j.categoria || '–')) + dato('N°', j.numero != null ? h(j.numero) : '–') + dato('Estado', 'Activo', ' class="cred-activo"') + '</div>' +
       '<div class="cred-codigo">' + codigoCredencial() + '<small>Síguenos · @vieuxgaulois</small><span class="reloj" data-reloj>' + h(relojTexto()) + '</span></div></div>' +
       '<p class="ayuda">Muéstrala en los convenios del club. La fecha y hora corren en vivo: así se nota que no es una captura de pantalla.</p>' +
-      '<div class="modal-pie columna"><button class="btn ancho" data-act="fotoPerfil" data-rut="' + h(j.rut) + '">' + icono('camara') + (j.foto ? ' Cambiar foto' : ' Agregar foto') + '</button></div>';
+      '<div class="modal-pie columna"><button class="btn primario ancho" data-act="historiaCredencial" data-rut="' + h(j.rut) + '">' + icono('compartir') + ' Compartir en historias</button>' +
+      '<button class="btn ancho" data-act="fotoPerfil" data-rut="' + h(j.rut) + '">' + icono('camara') + (j.foto ? ' Cambiar foto' : ' Agregar foto') + '</button></div>';
   }
   // QR del Instagram del club (nivel H, 37×37, generado una vez con qrcode-generator); el escudo tapa el centro sin romper la lectura.
   const INSTAGRAM_CLUB = 'https://www.instagram.com/vieuxgaulois/';
   const QR_INSTAGRAM = 'M0 0h7v1h-7zM9 0h1v1h-1zM12 0h2v1h-2zM15 0h3v1h-3zM20 0h2v1h-2zM23 0h1v1h-1zM26 0h1v1h-1zM28 0h1v1h-1zM30 0h7v1h-7zM0 1h1v1h-1zM6 1h1v1h-1zM9 1h1v1h-1zM13 1h1v1h-1zM16 1h2v1h-2zM24 1h1v1h-1zM28 1h1v1h-1zM30 1h1v1h-1zM36 1h1v1h-1zM0 2h1v1h-1zM2 2h3v1h-3zM6 2h1v1h-1zM11 2h1v1h-1zM14 2h2v1h-2zM19 2h1v1h-1zM21 2h1v1h-1zM23 2h5v1h-5zM30 2h1v1h-1zM32 2h3v1h-3zM36 2h1v1h-1zM0 3h1v1h-1zM2 3h3v1h-3zM6 3h1v1h-1zM9 3h1v1h-1zM11 3h2v1h-2zM14 3h3v1h-3zM19 3h1v1h-1zM21 3h1v1h-1zM23 3h1v1h-1zM25 3h3v1h-3zM30 3h1v1h-1zM32 3h3v1h-3zM36 3h1v1h-1zM0 4h1v1h-1zM2 4h3v1h-3zM6 4h1v1h-1zM8 4h4v1h-4zM14 4h1v1h-1zM17 4h1v1h-1zM19 4h3v1h-3zM24 4h1v1h-1zM27 4h1v1h-1zM30 4h1v1h-1zM32 4h3v1h-3zM36 4h1v1h-1zM0 5h1v1h-1zM6 5h1v1h-1zM9 5h1v1h-1zM11 5h3v1h-3zM15 5h1v1h-1zM19 5h1v1h-1zM21 5h2v1h-2zM24 5h2v1h-2zM30 5h1v1h-1zM36 5h1v1h-1zM0 6h7v1h-7zM8 6h1v1h-1zM10 6h1v1h-1zM12 6h1v1h-1zM14 6h1v1h-1zM16 6h1v1h-1zM18 6h1v1h-1zM20 6h1v1h-1zM22 6h1v1h-1zM24 6h1v1h-1zM26 6h1v1h-1zM28 6h1v1h-1zM30 6h7v1h-7zM8 7h1v1h-1zM11 7h1v1h-1zM15 7h1v1h-1zM17 7h2v1h-2zM21 7h1v1h-1zM23 7h1v1h-1zM27 7h2v1h-2zM2 8h2v1h-2zM6 8h5v1h-5zM13 8h1v1h-1zM17 8h1v1h-1zM19 8h1v1h-1zM21 8h1v1h-1zM25 8h1v1h-1zM27 8h4v1h-4zM32 8h1v1h-1zM0 9h1v1h-1zM2 9h1v1h-1zM9 9h1v1h-1zM11 9h2v1h-2zM14 9h1v1h-1zM17 9h4v1h-4zM25 9h5v1h-5zM31 9h1v1h-1zM6 10h1v1h-1zM8 10h2v1h-2zM12 10h1v1h-1zM14 10h2v1h-2zM17 10h1v1h-1zM22 10h2v1h-2zM25 10h1v1h-1zM27 10h1v1h-1zM29 10h1v1h-1zM31 10h3v1h-3zM0 11h4v1h-4zM7 11h1v1h-1zM9 11h1v1h-1zM13 11h1v1h-1zM16 11h3v1h-3zM20 11h1v1h-1zM24 11h4v1h-4zM31 11h4v1h-4zM36 11h1v1h-1zM1 12h1v1h-1zM4 12h3v1h-3zM10 12h1v1h-1zM12 12h1v1h-1zM15 12h2v1h-2zM19 12h2v1h-2zM23 12h1v1h-1zM25 12h2v1h-2zM29 12h2v1h-2zM32 12h4v1h-4zM4 13h2v1h-2zM7 13h1v1h-1zM9 13h5v1h-5zM15 13h1v1h-1zM18 13h1v1h-1zM21 13h2v1h-2zM27 13h2v1h-2zM30 13h1v1h-1zM32 13h1v1h-1zM34 13h3v1h-3zM0 14h1v1h-1zM5 14h3v1h-3zM10 14h1v1h-1zM14 14h1v1h-1zM16 14h1v1h-1zM18 14h1v1h-1zM22 14h1v1h-1zM24 14h1v1h-1zM34 14h1v1h-1zM0 15h3v1h-3zM5 15h1v1h-1zM7 15h4v1h-4zM12 15h1v1h-1zM15 15h1v1h-1zM18 15h7v1h-7zM27 15h1v1h-1zM29 15h1v1h-1zM31 15h2v1h-2zM35 15h1v1h-1zM1 16h1v1h-1zM3 16h2v1h-2zM6 16h3v1h-3zM12 16h2v1h-2zM15 16h1v1h-1zM19 16h3v1h-3zM25 16h1v1h-1zM27 16h1v1h-1zM31 16h1v1h-1zM33 16h2v1h-2zM2 17h3v1h-3zM9 17h1v1h-1zM11 17h1v1h-1zM14 17h3v1h-3zM19 17h3v1h-3zM25 17h1v1h-1zM27 17h1v1h-1zM29 17h2v1h-2zM33 17h1v1h-1zM36 17h1v1h-1zM0 18h1v1h-1zM2 18h1v1h-1zM4 18h1v1h-1zM6 18h1v1h-1zM9 18h1v1h-1zM13 18h2v1h-2zM18 18h1v1h-1zM20 18h1v1h-1zM22 18h1v1h-1zM26 18h4v1h-4zM32 18h5v1h-5zM0 19h1v1h-1zM2 19h1v1h-1zM4 19h1v1h-1zM10 19h5v1h-5zM16 19h2v1h-2zM19 19h2v1h-2zM23 19h1v1h-1zM30 19h2v1h-2zM33 19h1v1h-1zM36 19h1v1h-1zM0 20h1v1h-1zM2 20h1v1h-1zM4 20h7v1h-7zM12 20h5v1h-5zM18 20h4v1h-4zM23 20h1v1h-1zM26 20h1v1h-1zM28 20h2v1h-2zM32 20h1v1h-1zM35 20h1v1h-1zM0 21h2v1h-2zM3 21h3v1h-3zM8 21h1v1h-1zM10 21h2v1h-2zM13 21h1v1h-1zM15 21h3v1h-3zM20 21h3v1h-3zM25 21h2v1h-2zM29 21h1v1h-1zM31 21h1v1h-1zM33 21h1v1h-1zM35 21h1v1h-1zM2 22h5v1h-5zM9 22h1v1h-1zM11 22h2v1h-2zM19 22h1v1h-1zM23 22h1v1h-1zM25 22h1v1h-1zM29 22h1v1h-1zM32 22h3v1h-3zM0 23h1v1h-1zM2 23h1v1h-1zM7 23h1v1h-1zM10 23h4v1h-4zM16 23h1v1h-1zM19 23h2v1h-2zM22 23h3v1h-3zM27 23h4v1h-4zM33 23h3v1h-3zM0 24h1v1h-1zM2 24h3v1h-3zM6 24h2v1h-2zM9 24h1v1h-1zM11 24h5v1h-5zM17 24h1v1h-1zM19 24h2v1h-2zM22 24h3v1h-3zM26 24h1v1h-1zM30 24h1v1h-1zM32 24h3v1h-3zM36 24h1v1h-1zM1 25h1v1h-1zM4 25h1v1h-1zM8 25h1v1h-1zM10 25h2v1h-2zM15 25h2v1h-2zM21 25h4v1h-4zM26 25h1v1h-1zM29 25h8v1h-8zM1 26h1v1h-1zM3 26h1v1h-1zM6 26h2v1h-2zM9 26h1v1h-1zM11 26h1v1h-1zM14 26h1v1h-1zM19 26h1v1h-1zM21 26h3v1h-3zM26 26h1v1h-1zM32 26h1v1h-1zM34 26h1v1h-1zM0 27h1v1h-1zM4 27h1v1h-1zM8 27h2v1h-2zM15 27h1v1h-1zM18 27h1v1h-1zM20 27h2v1h-2zM23 27h1v1h-1zM26 27h1v1h-1zM28 27h2v1h-2zM31 27h2v1h-2zM35 27h2v1h-2zM2 28h1v1h-1zM6 28h2v1h-2zM10 28h2v1h-2zM13 28h4v1h-4zM25 28h1v1h-1zM27 28h6v1h-6zM34 28h1v1h-1zM36 28h1v1h-1zM8 29h2v1h-2zM11 29h2v1h-2zM14 29h1v1h-1zM17 29h2v1h-2zM21 29h1v1h-1zM23 29h4v1h-4zM28 29h1v1h-1zM32 29h5v1h-5zM0 30h7v1h-7zM8 30h2v1h-2zM11 30h1v1h-1zM15 30h2v1h-2zM18 30h1v1h-1zM20 30h3v1h-3zM28 30h1v1h-1zM30 30h1v1h-1zM32 30h2v1h-2zM35 30h2v1h-2zM0 31h1v1h-1zM6 31h1v1h-1zM9 31h1v1h-1zM12 31h6v1h-6zM19 31h2v1h-2zM22 31h1v1h-1zM24 31h1v1h-1zM27 31h2v1h-2zM32 31h2v1h-2zM36 31h1v1h-1zM0 32h1v1h-1zM2 32h3v1h-3zM6 32h1v1h-1zM17 32h1v1h-1zM19 32h1v1h-1zM21 32h2v1h-2zM24 32h1v1h-1zM26 32h1v1h-1zM28 32h6v1h-6zM35 32h1v1h-1zM0 33h1v1h-1zM2 33h3v1h-3zM6 33h1v1h-1zM8 33h1v1h-1zM15 33h1v1h-1zM18 33h1v1h-1zM20 33h1v1h-1zM24 33h2v1h-2zM27 33h2v1h-2zM30 33h1v1h-1zM32 33h3v1h-3zM0 34h1v1h-1zM2 34h3v1h-3zM6 34h1v1h-1zM8 34h1v1h-1zM10 34h1v1h-1zM12 34h1v1h-1zM14 34h3v1h-3zM20 34h1v1h-1zM22 34h3v1h-3zM26 34h2v1h-2zM30 34h4v1h-4zM35 34h1v1h-1zM0 35h1v1h-1zM6 35h1v1h-1zM9 35h1v1h-1zM12 35h2v1h-2zM18 35h1v1h-1zM25 35h1v1h-1zM29 35h1v1h-1zM32 35h3v1h-3zM0 36h7v1h-7zM10 36h4v1h-4zM19 36h1v1h-1zM22 36h1v1h-1zM24 36h3v1h-3zM30 36h7v1h-7z';
   const codigoCredencial = () => '<a href="' + INSTAGRAM_CLUB + '" target="_blank" rel="noopener noreferrer" aria-label="Instagram del club"><svg viewBox="-2 -2 41 41" shape-rendering="crispEdges">' +
     '<path fill="#0B1A4A" d="' + QR_INSTAGRAM + '"/><rect x="14.5" y="14.5" width="8" height="8" rx="1.5" fill="#fff"/><image href="' + ESCUDO + '" x="15" y="14.8" width="7" height="7.4"/></svg></a>';
+  /*
+   * Imagen de la credencial para historias de WhatsApp/Instagram (1080×1920).
+   * Sin RUT ni reloj: es para compartir, no para validar en comercios.
+   */
+  async function imagenHistoria(j) {
+    const W = 1080, H = 1920, cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const g = cv.getContext('2d');
+    const cargar = (src) => new Promise((res) => { if (!src) return res(null); const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = src; });
+    const [escudo, foto] = await Promise.all([cargar(ESCUDO), cargar(j.foto ? fotoUrl(j.foto) : ''), document.fonts ? document.fonts.ready : null]);
+    const F = '"Roboto Flex", Roboto, system-ui, sans-serif';
+    const ORO = '#E8B121', ROJO = '#C8102E', CELESTE = '#3E6FD8', AZUL = '#0B1A4A';
+    const fuente = (peso, px, esp) => { g.font = peso + ' ' + px + 'px ' + F; if ('letterSpacing' in g) g.letterSpacing = (esp || 0) + 'px'; };
+    const texto = (t, x, y, alin, color) => { g.textAlign = alin || 'center'; g.fillStyle = color || '#fff'; g.fillText(t, x, y); };
+    const redondo = (x, y, w, hh, r) => { g.beginPath(); g.roundRect(x, y, w, hh, r); };
+    const ajustar = (t, max, peso, px, esp) => { fuente(peso, px, esp); while (g.measureText(t).width > max && px > 30) fuente(peso, --px, esp); };
+    const brillo = (x, y, r, color) => { const rg = g.createRadialGradient(x, y, 0, x, y, r); rg.addColorStop(0, color); rg.addColorStop(1, 'transparent'); g.fillStyle = rg; g.fillRect(0, 0, W, H); };
+
+    // Fondo
+    const fondo = g.createLinearGradient(0, 0, W * 0.4, H);
+    fondo.addColorStop(0, '#081338'); fondo.addColorStop(0.5, '#14307A'); fondo.addColorStop(1, '#0A1A4E');
+    g.fillStyle = fondo; g.fillRect(0, 0, W, H);
+    brillo(W, 0, 900, 'rgba(232,177,33,.32)'); brillo(0, H, 1000, 'rgba(200,16,46,.38)');
+    if (escudo) { g.save(); g.globalAlpha = 0.07; g.translate(W * 0.72, H * 0.52); g.rotate(-0.2); g.drawImage(escudo, -520, -560, 1040, 1120); g.restore(); }
+    const franja = (x, y, w, hh) => [ROJO, ORO, CELESTE].forEach((c, i) => { g.fillStyle = c; g.fillRect(x + i * w / 3, y, w / 3 + 1, hh); });
+
+    // Encabezado
+    if (escudo) { g.save(); g.shadowColor = 'rgba(0,0,0,.45)'; g.shadowBlur = 24; g.shadowOffsetY = 8; g.drawImage(escudo, W / 2 - 75, 150, 150, 160); g.restore(); }
+    fuente(900, 70, 8); texto('VIEUX GAULOIS', W / 2, 395);
+    fuente(700, 30, 10); texto('HANDBALL CLUB', W / 2, 445, 'center', ORO);
+    franja(W / 2 - 160, 480, 320, 6);
+
+    // Tarjeta
+    const cx = 90, cy = 560, cw = W - 180, ch = 820;
+    g.save(); g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = 60; g.shadowOffsetY = 30;
+    const tg = g.createLinearGradient(cx, cy, cx + cw, cy + ch); tg.addColorStop(0, '#1A3A8F'); tg.addColorStop(1, '#0C1C52');
+    redondo(cx, cy, cw, ch, 56); g.fillStyle = tg; g.fill(); g.restore();
+    g.save(); redondo(cx, cy, cw, ch, 56); g.clip();
+    const brilloTarjeta = g.createLinearGradient(cx, cy, cx + cw, cy + ch * 0.6);
+    brilloTarjeta.addColorStop(0.3, 'rgba(255,255,255,0)'); brilloTarjeta.addColorStop(0.45, 'rgba(255,255,255,.13)'); brilloTarjeta.addColorStop(0.6, 'rgba(255,255,255,0)');
+    g.fillStyle = brilloTarjeta; g.fillRect(cx, cy, cw, ch);
+    if (escudo) { g.globalAlpha = 0.08; g.drawImage(escudo, cx + cw - 330, cy + 250, 420, 450); g.globalAlpha = 1; }
+    g.restore();
+    redondo(cx, cy, cw, ch, 56); g.strokeStyle = 'rgba(255,255,255,.16)'; g.lineWidth = 3; g.stroke();
+    fuente(800, 26, 6); texto('CREDENCIAL OFICIAL', cx + 60, cy + 80, 'left', ORO);
+    fuente(800, 26, 6); texto('TEMPORADA ' + ANIO, cx + cw - 60, cy + 80, 'right', ORO);
+    franja(cx + 60, cy + 108, cw - 120, 5);
+
+    // Foto
+    const fw = 300, fh = 360, fx = W / 2 - fw / 2, fy = cy + 160;
+    g.save(); g.shadowColor = 'rgba(0,0,0,.45)'; g.shadowBlur = 30; g.shadowOffsetY = 12; redondo(fx, fy, fw, fh, 40); g.fillStyle = '#24418F'; g.fill(); g.restore();
+    g.save(); redondo(fx, fy, fw, fh, 40); g.clip();
+    if (foto) {
+      const k = Math.max(fw / foto.width, fh / foto.height);
+      g.drawImage(foto, fx + (fw - foto.width * k) / 2, fy + (fh - foto.height * k) / 2, foto.width * k, foto.height * k);
+    } else { fuente(900, 120); g.textBaseline = 'middle'; texto(iniciales(j.nombre), W / 2, fy + fh / 2 + 6); g.textBaseline = 'alphabetic'; }
+    g.restore();
+    redondo(fx, fy, fw, fh, 40); g.strokeStyle = ORO; g.lineWidth = 8; g.stroke();
+    if (j.numero != null) {
+      g.beginPath(); g.arc(fx + fw - 6, fy + fh - 6, 52, 0, Math.PI * 2); g.fillStyle = ROJO; g.fill(); g.strokeStyle = ORO; g.lineWidth = 6; g.stroke();
+      fuente(900, 50); g.textBaseline = 'middle'; texto(String(j.numero), fx + fw - 6, fy + fh - 2); g.textBaseline = 'alphabetic';
+    }
+
+    // Nombre y datos
+    ajustar(j.nombre, cw - 120, 900, 76, 1); texto(j.nombre, W / 2, fy + fh + 120);
+    const cols = [['CATEGORÍA', j.categoria || '–'], ['ESTADO', 'Activo']];
+    cols.forEach(([etq, val], i) => {
+      const x = cx + cw * (i ? 0.75 : 0.36);
+      fuente(800, 24, 5); texto(etq, x, fy + fh + 200, 'center', ORO);
+      ajustar(val, cw * 0.5, 700, 40); texto(val, x + (i ? 14 : 0), fy + fh + 252);
+      if (i) { g.beginPath(); g.arc(x - g.measureText(val).width / 2 - 8, fy + fh + 238, 11, 0, Math.PI * 2); g.fillStyle = '#6EE7A0'; g.fill(); }
+    });
+
+    // QR al Instagram
+    const qs = 300, qx = W / 2 - qs / 2, qy = cy + ch + 70;
+    g.save(); g.shadowColor = 'rgba(0,0,0,.35)'; g.shadowBlur = 30; redondo(qx - 24, qy - 24, qs + 48, qs + 48, 36); g.fillStyle = '#fff'; g.fill(); g.restore();
+    g.save(); g.translate(qx, qy); g.scale(qs / 37, qs / 37); g.fillStyle = AZUL; g.fill(new Path2D(QR_INSTAGRAM));
+    g.fillStyle = '#fff'; redondo(14.5, 14.5, 8, 8, 1.5); g.fill(); if (escudo) g.drawImage(escudo, 15, 14.8, 7, 7.4); g.restore();
+    fuente(800, 40, 2); texto('@vieuxgaulois', W / 2, qy + qs + 100);
+    fuente(600, 26, 4); texto('SÍGUENOS EN INSTAGRAM', W / 2, qy + qs + 145, 'center', 'rgba(255,255,255,.7)');
+
+    return new Promise((res) => cv.toBlob(res, 'image/png'));
+  }
+
+  async function historiaCredencial(rut) {
+    const j = rut ? usuario(rut) : yo();
+    toast('Preparando la imagen…');
+    const blob = await imagenHistoria(j);
+    if (S.historia) URL.revokeObjectURL(S.historia.url);
+    const nombre = 'credencial-vieux-gaulois-' + (j.nombre || '').toLowerCase().normalize('NFD').replace(/[^\w]+/g, '-').replace(/^-|-$/g, '') + '.png';
+    S.historia = { archivo: new File([blob], nombre, { type: 'image/png' }), url: URL.createObjectURL(blob), rut: j.rut };
+    const comparte = navigator.canShare && navigator.canShare({ files: [S.historia.archivo] });
+    abrirModal('Compartir credencial', '<img class="historia-vista" src="' + S.historia.url + '" alt="Credencial para historias">' +
+      '<p class="ayuda">Lista para tus historias de WhatsApp o Instagram. No incluye tu RUT.</p>' +
+      '<div class="modal-pie columna">' + (comparte ? '<button class="btn primario ancho" data-act="compartirHistoria">' + icono('compartir') + ' Compartir</button>' : '') +
+      '<a class="btn ancho' + (comparte ? '' : ' primario') + '" href="' + S.historia.url + '" download="' + h(nombre) + '">' + icono('descargar') + ' Descargar imagen</a>' +
+      '<button class="btn ancho contorno" data-act="credencial" data-rut="' + h(j.rut) + '">Volver a la credencial</button></div>');
+  }
+
+  async function compartirHistoria() {
+    if (!S.historia) return;
+    try { await navigator.share({ files: [S.historia.archivo] }); } catch (e) { if (e.name !== 'AbortError') toast('No se pudo compartir: usa Descargar imagen'); }
+  }
+
   const relojTexto = () => new Date().toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
   setInterval(() => { document.querySelectorAll('[data-reloj]').forEach((e) => { e.textContent = relojTexto(); }); }, 1000);
 
@@ -6074,6 +6182,8 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     verJugador: (d) => abrirModal('Ficha del jugador', fichaJugador(d.rut)),
     editarJugador: (d) => abrirModal('Editar jugador', formJugador(usuario(d.rut)), (o) => accion('jugador.editar', o, 'Datos guardados')),
     misDatos: () => abrirModal('Datos de contacto', formMisDatos(yo()), (o) => accion('jugador.editar', o, 'Datos guardados')),
+    historiaCredencial: (d) => historiaCredencial(d.rut).catch(() => toast('No se pudo crear la imagen')),
+    compartirHistoria: () => compartirHistoria(),
     credencial: (d) => abrirModal('Credencial digital', vistaCredencial(d.rut ? usuario(d.rut) : yo())),
     fotoPerfil: async (d) => {
       const [f] = await elegirArchivos(false);
