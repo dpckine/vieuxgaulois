@@ -695,9 +695,10 @@ body.sin-sesion .toast { bottom: calc(24px + var(--seguro-abajo)); }
 .perfil-foto span { position: absolute; right: -6px; bottom: -4px; min-width: 28px; height: 28px; padding: 0 6px; border-radius: 14px; background: var(--marca-rojo); color: #fff; font-weight: 900; font-size: 14px; display: grid; place-items: center; box-shadow: 0 0 0 2px var(--marca-oro); }
 .perfil-foto span:empty { display: none; }
 /* Credencial con aspecto de tarjeta de billetera digital (sólo se ve en la app). */
+/* Los colores (--f1..3 fondo, --g1/--g2 brillos, --etq etiquetas, --borde foto, --marco) vienen de TEMAS_CRED. */
 .credencial { position: relative; max-width: 360px; margin: 6px auto 0; border-radius: 22px; overflow: hidden; color: #fff; isolation: isolate;
-  background: radial-gradient(120% 70% at 100% 0%, rgba(232, 177, 33, .28) 0%, transparent 55%), radial-gradient(90% 60% at 0% 100%, rgba(200, 16, 46, .35) 0%, transparent 60%), linear-gradient(160deg, #0B1A4A 0%, #14307A 55%, #0E2260 100%);
-  box-shadow: 0 18px 40px -8px rgba(11, 26, 74, .55), 0 2px 6px rgba(11, 26, 74, .3), inset 0 0 0 1px rgba(255, 255, 255, .12); animation: cred-entra .5s cubic-bezier(.2, .8, .2, 1); }
+  background: radial-gradient(120% 70% at 100% 0%, var(--g1) 0%, transparent 55%), radial-gradient(90% 60% at 0% 100%, var(--g2) 0%, transparent 60%), linear-gradient(160deg, var(--f1) 0%, var(--f2) 55%, var(--f3) 100%);
+  box-shadow: 0 18px 40px -8px rgba(11, 26, 74, .55), 0 2px 6px rgba(11, 26, 74, .3), inset 0 0 0 var(--marco, 1px) rgba(255, 255, 255, .12), inset 0 0 0 var(--marco, 0) var(--borde); animation: cred-entra .5s cubic-bezier(.2, .8, .2, 1); }
 .credencial::before { content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none; background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, .22) 48%, rgba(255, 255, 255, .05) 55%, transparent 65%); background-size: 250% 100%; animation: cred-brillo 4.5s ease-in-out infinite; }
 .credencial::after { content: ""; position: absolute; z-index: -1; right: -60px; top: 30px; width: 240px; height: 250px; background: var(--escudo, url(escudo.png)) center/contain no-repeat; opacity: .09; transform: rotate(-12deg); pointer-events: none; }
 @keyframes cred-brillo { 0% { background-position: 120% 0; } 60%, 100% { background-position: -120% 0; } }
@@ -705,7 +706,7 @@ body.sin-sesion .toast { bottom: calc(24px + var(--seguro-abajo)); }
 .cred-cab { display: flex; align-items: center; gap: 10px; padding: 16px 18px 12px; }
 .cred-cab img { width: 36px; height: 38px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .45)); }
 .cred-cab b { display: block; letter-spacing: .1em; font-size: 15px; font-weight: 900; }
-.cred-cab small, .cred-dato small { display: block; font-size: 9.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--marca-oro); }
+.cred-cab small, .cred-dato small { display: block; font-size: 9.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--etq); }
 .cred-cab .derecha { margin-left: auto; text-align: right; }
 .cred-cab .derecha b { font-size: 17px; letter-spacing: .02em; }
 .credencial .franja { margin: 0 18px; border-radius: 4px; overflow: hidden; height: 3px; }
@@ -713,8 +714,10 @@ body.sin-sesion .toast { bottom: calc(24px + var(--seguro-abajo)); }
 .cred-cuerpo .crece { min-width: 0; }
 .cred-cuerpo h3 { font-size: 23px; font-weight: 900; line-height: 1.1; margin: 2px 0 12px; overflow-wrap: anywhere; }
 .cred-dato b { display: block; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.cred-foto { flex: none; width: 84px; height: 104px; border-radius: 14px; object-fit: cover; border: 2px solid var(--marca-oro); background: rgba(255, 255, 255, .12); font-size: 28px; color: #fff; box-shadow: 0 6px 16px rgba(0, 0, 0, .35); }
+.cred-foto { flex: none; width: 84px; height: 104px; border-radius: 14px; object-fit: cover; border: 2px solid var(--borde); background: rgba(255, 255, 255, .12); font-size: 28px; color: #fff; box-shadow: 0 6px 16px rgba(0, 0, 0, .35); }
 .cred-campos { display: grid; grid-template-columns: 1.6fr .8fr 1fr; gap: 10px; padding: 8px 18px 16px; }
+.cred-campos.dos { grid-template-columns: 1fr auto; }
+.cred-dato b { overflow-wrap: anywhere; }
 .cred-campos .cred-dato:last-child { text-align: right; }
 .historia-vista { display: block; width: 100%; max-width: 260px; margin: 4px auto 0; border-radius: 18px; box-shadow: var(--sombra-3); }
 .historia-vista + .ayuda { text-align: center; margin-top: 12px; }
@@ -2230,8 +2233,10 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
         break;
       }
       case 'foto.perfil': {
-        const j = buscarJugador(db, p.rut);
-        exigir(esStaff || (esJug && jug().rut === j.rut));
+        // Cada uno pone su foto; el cuerpo técnico la de los jugadores y la directiva la de cualquiera.
+        const j = buscarUsuario(db, p.rut);
+        if (!j) throw err('Usuario no encontrado');
+        exigir(esDir || actor.rut === j.rut || (j.rol === 'jugador' && (esStaff || (esJug && quien.rol === 'jugador' && quien.rut === j.rut))));
         const id = p.data ? guardarImagen(db, p.data, 150) : null;
         quitarImagen(db, j.foto);
         if (id) j.foto = id; else delete j.foto;
@@ -3116,7 +3121,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     if (yo.rol === 'apoderado') {
       // El apoderado recibe la vista de cada hijo o hija; la app muestra una a la vez.
       const hijos = (yo.hijos || []).map((r) => buscarUsuario(db, r)).filter((u) => u && u.rol === 'jugador' && u.activo !== false);
-      return { yo: rut, apoderado: { rut, nombre: yo.nombre, telefono: yo.telefono || '', email: yo.email || '', claveInicial: !yo.claveHash }, hijos: hijos.map((h) => vistaJugador(db, h, yo)) };
+      return { yo: rut, apoderado: { rut, nombre: yo.nombre, telefono: yo.telefono || '', email: yo.email || '', foto: yo.foto || '', claveInicial: !yo.claveHash }, hijos: hijos.map((h) => vistaJugador(db, h, yo)) };
     }
     const v = clone(db);
     ['fotos', 'fotosBorradas', 'notificar', 'recordatoriosEnviados'].forEach((k) => delete v[k]);
@@ -5536,18 +5541,60 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
   const avatarFoto = (u, clase) => (u.foto ? '<img class="' + (clase || 'foto-mini') + '" src="' + h(fotoUrl(u.foto)) + '" alt="">' : '<span class="' + (clase || 'foto-mini') + ' sin-foto">' + h(iniciales(u.nombre)) + '</span>');
 
   // ---------- Credencial digital ----------
-  function vistaCredencial(j) {
-    // Sin estado de cuotas: la credencial se muestra en comercios y no debe exponer deudas.
-    const dato = (etq, val, extra) => '<div class="cred-dato"><small>' + etq + '</small><b' + (extra || '') + '>' + val + '</b></div>';
-    return '<div class="credencial">' +
+  /*
+   * Cada credencial conserva los colores del club, pero con un tono distinto:
+   * menores (Mini, Infantil, Cadete) rojo; Juvenil, Junior, Espoirs y Master azul; Honor azul con mucho dorado;
+   * entrenadores azul, directiva rojo y apoderados dorado.
+   */
+  const TEMAS_CRED = {
+    azul: { f: ['#0B1A4A', '#14307A', '#0E2260'], g: ['rgba(232,177,33,.28)', 'rgba(200,16,46,.35)'], tarjeta: ['#1A3A8F', '#0C1C52'], etq: '#E8B121', borde: '#E8B121' },
+    rojo: { f: ['#4A0812', '#9E1229', '#5C0A17'], g: ['rgba(232,177,33,.32)', 'rgba(31,62,148,.5)'], tarjeta: ['#B5182F', '#5E0A18'], etq: '#F5C542', borde: '#E8B121' },
+    honor: { f: ['#0B1A4A', '#14307A', '#0E2260'], g: ['rgba(255,210,80,.78)', 'rgba(232,177,33,.62)'], tarjeta: ['#1C3A8A', '#0C1C52'], etq: '#FFD95C', borde: '#F7CF4D', marco: '2px' },
+    oro: { f: ['#3E2B04', '#9A6F12', '#5A3F07'], g: ['rgba(255,238,170,.42)', 'rgba(200,16,46,.32)'], tarjeta: ['#B38719', '#5A3F07'], etq: '#FFEAA6', borde: '#FFFFFF' },
+  };
+
+  function temaCredencial(u) {
+    if (u.rol === 'entrenador') return 'azul';
+    if (u.rol === 'directiva') return 'rojo';
+    if (u.rol === 'apoderado') return 'oro';
+    const b = C.baseCategoria(u.categoria);
+    if (['Mini', 'Infantil', 'Cadete'].includes(b)) return 'rojo';
+    return b === 'Adultos Galos Honor' ? 'honor' : 'azul';
+  }
+
+  // Qué dice cada credencial: título sobre el nombre y los datos de abajo. Sin estado de cuotas (se muestra en comercios).
+  function datosCredencial(u) {
+    const rut = /^\d{7,8}-[\dkK]$/.test(u.rut || '') ? C.formatearRut(u.rut) : '';
+    if (u.rol === 'entrenador') return { titulo: 'Entrenador', rut, campos: [['Cargo', u.cargo && u.cargo !== 'Entrenador' ? u.cargo : 'Cuerpo técnico']] };
+    if (u.rol === 'directiva') return { titulo: u.cargo || 'Directiva', rut, campos: [['Rol', 'Directiva']] };
+    if (u.rol === 'apoderado') return { titulo: 'Apoderado', rut, campos: [['Apoderado de', (u.pupilos || []).join(', ') || '–']] };
+    return { titulo: ramaCredencial(u) === 'Femenino' ? 'Jugadora' : 'Jugador', rut, numero: u.numero, campos: [['Categoría', C.baseCategoria(u.categoria) || '–'], ['N°', u.numero != null ? String(u.numero) : '–']] };
+  }
+  const ramaCredencial = (u) => C.ramaCategoria(u.categoria || '');
+  const estiloTema = (t) => '--f1:' + t.f[0] + ';--f2:' + t.f[1] + ';--f3:' + t.f[2] + ';--g1:' + t.g[0] + ';--g2:' + t.g[1] + ';--etq:' + t.etq + ';--borde:' + t.borde + (t.marco ? ';--marco:' + t.marco : '');
+
+  // La persona de una credencial: un usuario del club o, para el apoderado, él mismo (no viene en la lista de usuarios del hijo).
+  function personaCredencial(rut) {
+    if (S.apo && S.view.apoderado && (!rut || rut === S.view.apoderado.rut)) {
+      return Object.assign({ rol: 'apoderado', pupilos: S.apo.hijos.map((x) => x.usuarios[0].nombre.split(/\s+/)[0]) }, S.view.apoderado);
+    }
+    return (rut && usuario(rut)) || yo();
+  }
+
+  function vistaCredencial(u) {
+    const d = datosCredencial(u), tema = TEMAS_CRED[temaCredencial(u)];
+    const dato = (etq, val, extra) => '<div class="cred-dato"><small>' + h(etq) + '</small><b' + (extra || '') + '>' + h(val) + '</b></div>';
+    const propia = u.rut === S.view.yo || u.rol === 'apoderado';
+    const puedeFoto = propia || esStaff();
+    return '<div class="credencial" style="' + estiloTema(tema) + '">' +
       '<div class="cred-cab"><img src="' + ESCUDO + '" alt=""><div><b>VIEUX GAULOIS</b><small>Handball Club</small></div>' +
       '<div class="derecha"><small>Temporada</small><b>' + ANIO + '</b></div></div><div class="franja" aria-hidden="true"><i></i><i></i><i></i></div>' +
-      '<div class="cred-cuerpo"><div class="crece"><div class="cred-dato"><small>Jugador</small></div><h3>' + h(j.nombre) + '</h3>' + dato('RUT', h(C.formatearRut(j.rut))) + '</div>' + avatarFoto(j, 'cred-foto') + '</div>' +
-      '<div class="cred-campos">' + dato('Categoría', h(C.baseCategoria(j.categoria) || '–')) + dato('N°', j.numero != null ? h(j.numero) : '–') + dato('Estado', 'Activo', ' class="cred-activo"') + '</div>' +
+      '<div class="cred-cuerpo"><div class="crece"><div class="cred-dato"><small>' + h(d.titulo) + '</small></div><h3>' + h(u.nombre) + '</h3>' + (d.rut ? dato('RUT', d.rut) : '') + '</div>' + avatarFoto(u, 'cred-foto') + '</div>' +
+      '<div class="cred-campos' + (d.campos.length === 1 ? ' dos' : '') + '">' + d.campos.map(([e, v]) => dato(e, v)).join('') + dato('Estado', 'Activo', ' class="cred-activo"') + '</div>' +
       '<div class="cred-codigo">' + codigoCredencial() + '<small>Síguenos · @vieuxgaulois</small><span class="reloj" data-reloj>' + h(relojTexto()) + '</span></div></div>' +
       '<p class="ayuda">Muéstrala en los convenios del club. La fecha y hora corren en vivo: así se nota que no es una captura de pantalla.</p>' +
-      '<div class="modal-pie columna"><button class="btn primario ancho" data-act="historiaCredencial" data-rut="' + h(j.rut) + '">' + icono('compartir') + ' Compartir en historias</button>' +
-      '<button class="btn ancho" data-act="fotoPerfil" data-rut="' + h(j.rut) + '">' + icono('camara') + (j.foto ? ' Cambiar foto' : ' Agregar foto') + '</button></div>';
+      '<div class="modal-pie columna"><button class="btn primario ancho" data-act="historiaCredencial" data-rut="' + h(u.rut) + '">' + icono('compartir') + ' Compartir en historias</button>' +
+      (puedeFoto ? '<button class="btn ancho" data-act="fotoPerfil" data-rut="' + h(u.rut) + '">' + icono('camara') + (u.foto ? ' Cambiar foto' : ' Agregar foto') + '</button>' : '') + '</div>';
   }
   // QR del Instagram del club (nivel H, 37×37, generado una vez con qrcode-generator); el escudo tapa el centro sin romper la lectura.
   const INSTAGRAM_CLUB = 'https://www.instagram.com/vieuxgaulois/';
@@ -5559,6 +5606,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
    * Sin RUT ni reloj: es para compartir, no para validar en comercios.
    */
   async function imagenHistoria(j) {
+    const d = datosCredencial(j), tema = TEMAS_CRED[temaCredencial(j)];
     const W = 1080, H = 1920, cv = document.createElement('canvas');
     cv.width = W; cv.height = H;
     const g = cv.getContext('2d');
@@ -5574,22 +5622,23 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
 
     // Fondo
     const fondo = g.createLinearGradient(0, 0, W * 0.4, H);
-    fondo.addColorStop(0, '#081338'); fondo.addColorStop(0.5, '#14307A'); fondo.addColorStop(1, '#0A1A4E');
+    fondo.addColorStop(0, tema.f[0]); fondo.addColorStop(0.5, tema.f[1]); fondo.addColorStop(1, tema.f[2]);
     g.fillStyle = fondo; g.fillRect(0, 0, W, H);
-    brillo(W, 0, 900, 'rgba(232,177,33,.32)'); brillo(0, H, 1000, 'rgba(200,16,46,.38)');
+    g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(0, 0, W, H);
+    brillo(W, 0, 900, tema.g[0]); brillo(0, H, 1000, tema.g[1]);
     if (escudo) { g.save(); g.globalAlpha = 0.07; g.translate(W * 0.72, H * 0.52); g.rotate(-0.2); g.drawImage(escudo, -520, -560, 1040, 1120); g.restore(); }
     const franja = (x, y, w, hh) => [ROJO, ORO, CELESTE].forEach((c, i) => { g.fillStyle = c; g.fillRect(x + i * w / 3, y, w / 3 + 1, hh); });
 
     // Encabezado
     if (escudo) { g.save(); g.shadowColor = 'rgba(0,0,0,.45)'; g.shadowBlur = 24; g.shadowOffsetY = 8; g.drawImage(escudo, W / 2 - 75, 150, 150, 160); g.restore(); }
     fuente(900, 70, 8); texto('VIEUX GAULOIS', W / 2, 395);
-    fuente(700, 30, 10); texto('HANDBALL CLUB', W / 2, 445, 'center', ORO);
+    fuente(700, 30, 10); texto('HANDBALL CLUB', W / 2, 445, 'center', tema.etq);
     franja(W / 2 - 160, 480, 320, 6);
 
     // Tarjeta
     const cx = 90, cy = 560, cw = W - 180, ch = 820;
     g.save(); g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = 60; g.shadowOffsetY = 30;
-    const tg = g.createLinearGradient(cx, cy, cx + cw, cy + ch); tg.addColorStop(0, '#1A3A8F'); tg.addColorStop(1, '#0C1C52');
+    const tg = g.createLinearGradient(cx, cy, cx + cw, cy + ch); tg.addColorStop(0, tema.tarjeta[0]); tg.addColorStop(1, tema.tarjeta[1]);
     redondo(cx, cy, cw, ch, 56); g.fillStyle = tg; g.fill(); g.restore();
     g.save(); redondo(cx, cy, cw, ch, 56); g.clip();
     const brilloTarjeta = g.createLinearGradient(cx, cy, cx + cw, cy + ch * 0.6);
@@ -5597,34 +5646,35 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     g.fillStyle = brilloTarjeta; g.fillRect(cx, cy, cw, ch);
     if (escudo) { g.globalAlpha = 0.08; g.drawImage(escudo, cx + cw - 330, cy + 250, 420, 450); g.globalAlpha = 1; }
     g.restore();
-    redondo(cx, cy, cw, ch, 56); g.strokeStyle = 'rgba(255,255,255,.16)'; g.lineWidth = 3; g.stroke();
-    fuente(800, 26, 6); texto('CREDENCIAL OFICIAL', cx + 60, cy + 80, 'left', ORO);
-    fuente(800, 26, 6); texto('TEMPORADA ' + ANIO, cx + cw - 60, cy + 80, 'right', ORO);
+    redondo(cx, cy, cw, ch, 56); g.strokeStyle = tema.marco ? tema.borde : 'rgba(255,255,255,.16)'; g.lineWidth = tema.marco ? 6 : 3; g.stroke();
+    fuente(800, 26, 6); texto('CREDENCIAL OFICIAL', cx + 60, cy + 80, 'left', tema.etq);
+    fuente(800, 26, 6); texto('TEMPORADA ' + ANIO, cx + cw - 60, cy + 80, 'right', tema.etq);
     franja(cx + 60, cy + 108, cw - 120, 5);
 
     // Foto
     const fw = 300, fh = 360, fx = W / 2 - fw / 2, fy = cy + 160;
-    g.save(); g.shadowColor = 'rgba(0,0,0,.45)'; g.shadowBlur = 30; g.shadowOffsetY = 12; redondo(fx, fy, fw, fh, 40); g.fillStyle = '#24418F'; g.fill(); g.restore();
+    g.save(); g.shadowColor = 'rgba(0,0,0,.45)'; g.shadowBlur = 30; g.shadowOffsetY = 12; redondo(fx, fy, fw, fh, 40); g.fillStyle = tema.tarjeta[0]; g.fill(); g.fillStyle = 'rgba(255,255,255,.12)'; g.fill(); g.restore();
     g.save(); redondo(fx, fy, fw, fh, 40); g.clip();
     if (foto) {
       const k = Math.max(fw / foto.width, fh / foto.height);
       g.drawImage(foto, fx + (fw - foto.width * k) / 2, fy + (fh - foto.height * k) / 2, foto.width * k, foto.height * k);
     } else { fuente(900, 120); g.textBaseline = 'middle'; texto(iniciales(j.nombre), W / 2, fy + fh / 2 + 6); g.textBaseline = 'alphabetic'; }
     g.restore();
-    redondo(fx, fy, fw, fh, 40); g.strokeStyle = ORO; g.lineWidth = 8; g.stroke();
-    if (j.numero != null) {
+    redondo(fx, fy, fw, fh, 40); g.strokeStyle = tema.borde; g.lineWidth = 8; g.stroke();
+    if (d.numero != null) {
       g.beginPath(); g.arc(fx + fw - 6, fy + fh - 6, 52, 0, Math.PI * 2); g.fillStyle = ROJO; g.fill(); g.strokeStyle = ORO; g.lineWidth = 6; g.stroke();
-      fuente(900, 50); g.textBaseline = 'middle'; texto(String(j.numero), fx + fw - 6, fy + fh - 2); g.textBaseline = 'alphabetic';
+      fuente(900, 50); g.textBaseline = 'middle'; texto(String(d.numero), fx + fw - 6, fy + fh - 2); g.textBaseline = 'alphabetic';
     }
 
     // Nombre y datos
-    ajustar(j.nombre, cw - 120, 900, 76, 1); texto(j.nombre, W / 2, fy + fh + 120);
-    const cols = [['CATEGORÍA', C.baseCategoria(j.categoria) || '–'], ['ESTADO', 'Activo']];
+    fuente(800, 26, 6); texto(d.titulo.toUpperCase(), W / 2, fy + fh + 62, 'center', tema.etq);
+    ajustar(j.nombre, cw - 120, 900, 76, 1); texto(j.nombre, W / 2, fy + fh + 136);
+    const cols = [[d.campos[0][0].toUpperCase(), d.campos[0][1]], ['ESTADO', 'Activo']];
     cols.forEach(([etq, val], i) => {
       const x = cx + cw * (i ? 0.75 : 0.36);
-      fuente(800, 24, 5); texto(etq, x, fy + fh + 200, 'center', ORO);
-      ajustar(val, cw * 0.5, 700, 40); texto(val, x + (i ? 14 : 0), fy + fh + 252);
-      if (i) { g.beginPath(); g.arc(x - g.measureText(val).width / 2 - 8, fy + fh + 238, 11, 0, Math.PI * 2); g.fillStyle = '#6EE7A0'; g.fill(); }
+      fuente(800, 24, 5); texto(etq, x, fy + fh + 206, 'center', tema.etq);
+      ajustar(val, cw * 0.5, 700, 40); texto(val, x + (i ? 14 : 0), fy + fh + 258);
+      if (i) { g.beginPath(); g.arc(x - g.measureText(val).width / 2 - 8, fy + fh + 244, 11, 0, Math.PI * 2); g.fillStyle = '#6EE7A0'; g.fill(); }
     });
 
     // QR al Instagram
@@ -5639,7 +5689,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
   }
 
   async function historiaCredencial(rut) {
-    const j = rut ? usuario(rut) : yo();
+    const j = personaCredencial(rut);
     toast('Preparando la imagen…');
     const blob = await imagenHistoria(j);
     if (S.historia) URL.revokeObjectURL(S.historia.url);
@@ -6164,6 +6214,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
       const [, txtPush] = estadoPush();
       abrirModal('Mi cuenta', '<div class="ficha-cab"><div class="avatar grande">' + h(iniciales(u.nombre)) + '</div><div class="crece"><b>' + h(u.nombre) + '</b><small>' + h(u.cargo || u.rol) + '</small><small>' + h(u.usuario ? 'Usuario: ' + u.usuario : C.formatearRut(u.rut)) + '</small></div></div>' +
         seccion('Avisos', '<ul class="lista clic"><li data-act="activarPush"><span class="ico-celda c-avisos">' + icono('campana') + '</span><div class="crece"><b>Notificaciones en este dispositivo</b><small>Citaciones, mensajes, avisos y cuotas</small></div><span class="valor">' + h(txtPush) + '</span></li>' +
+          '<li data-act="credencial" data-rut="' + h(u.rut) + '"><span class="ico-celda c-avisos">' + icono('credencial') + '</span><div class="crece"><b>Mi credencial</b><small>Para convenios y para compartir</small></div><span class="chevron">' + icono('flecha') + '</span></li>' +
           (S.apo ? '<li data-act="misDatosApoderado"><span class="ico-celda c-gris">' + icono('perfil') + '</span><div class="crece"><b>Mis datos de contacto</b><small>Para recordatorios de cuotas</small></div><span class="chevron">' + icono('flecha') + '</span></li>' : '') + '</ul>') +
         seccionCuenta());
     },
@@ -6205,13 +6256,13 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     misDatos: () => abrirModal('Datos de contacto', formMisDatos(yo()), (o) => accion('jugador.editar', o, 'Datos guardados')),
     historiaCredencial: (d) => historiaCredencial(d.rut).catch(() => toast('No se pudo crear la imagen')),
     compartirHistoria: () => compartirHistoria(),
-    credencial: (d) => abrirModal('Credencial digital', vistaCredencial(d.rut ? usuario(d.rut) : yo())),
+    credencial: (d) => abrirModal('Credencial digital', vistaCredencial(personaCredencial(d.rut))),
     fotoPerfil: async (d) => {
       const [f] = await elegirArchivos(false);
       if (!f) return;
       try {
         const data = await comprimir(f, 480, 140, true);
-        if (await accion('foto.perfil', { rut: d.rut, data }, 'Foto actualizada')) abrirModal('Credencial digital', vistaCredencial(usuario(d.rut)));
+        if (await accion('foto.perfil', { rut: d.rut, data }, 'Foto actualizada')) abrirModal('Credencial digital', vistaCredencial(personaCredencial(d.rut)));
       } catch (e) { toast(e.message, 'error'); }
     },
     fichaMedica: (d) => abrirModal('Ficha médica', formFichaMedica(usuario(d.rut)), (o) => accion('ficha.guardar', o, 'Ficha médica guardada')),
