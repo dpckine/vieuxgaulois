@@ -473,6 +473,11 @@ table.tabla { width: 100%; border-collapse: collapse; font-size: 14px; }
 .perfil .datos b { font-size: 16px; }
 .perfil .btn { position: relative; z-index: 1; }
 .bienvenida::after { display: none; }
+.perfil.compacta { padding: 16px 18px; margin-bottom: 14px; background: linear-gradient(135deg, #3E2B04 0%, #9A6F12 60%, #5A3F07 100%); }
+.perfil.compacta::before { display: none; }
+.perfil.compacta h2 { font-size: 19px; }
+.perfil.compacta p { margin-bottom: 0; }
+.perfil .numero.inicial { font-size: 30px; min-width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; border: 3px solid var(--marca-oro); background: rgba(255, 255, 255, .12); color: #fff; }
 .bienvenida .hero-escudo { width: 76px; flex: none; filter: drop-shadow(0 6px 14px rgba(0,0,0,.45)); }
 .bienvenida .hero-sub { color: var(--marca-oro); font-weight: 700; text-transform: uppercase; letter-spacing: .12em; font-size: 11px; }
 .bienvenida h2 { font-size: 24px; }
@@ -4106,6 +4111,17 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
   }
 
   // ---------- Inicio (directiva / entrenador) ----------
+  // Acceso a la credencial propia desde la portada (directiva, entrenadores y apoderados), como en el perfil del jugador.
+  const fotoCredencial = (u) => '<button class="perfil-foto" data-act="credencial" data-rut="' + h(u.rut) + '" aria-label="Ver credencial"><img src="' + h(fotoUrl(u.foto)) + '" alt=""><span></span></button>';
+  const botonesCredencial = (u) => '<div class="fila insignias" style="margin-top:14px"><button class="btn mini claro" data-act="credencial" data-rut="' + h(u.rut) + '">' + icono('credencial') + ' Credencial</button>' +
+    (u.foto ? '' : '<button class="btn mini claro" data-act="fotoPerfil" data-rut="' + h(u.rut) + '">' + icono('camara') + ' Agregar foto</button>') + '</div>';
+
+  function tarjetaApoderado() {
+    const a = personaCredencial(S.view.apoderado.rut);
+    return '<section class="perfil compacta"><div class="perfil-fila">' + (a.foto ? fotoCredencial(a) : '<div class="numero inicial">' + h(iniciales(a.nombre)) + '</div>') +
+      '<div class="crece"><h2>' + h(a.nombre) + '</h2><p>Apoderado de ' + h(a.pupilos.join(', ')) + '</p></div></div>' + botonesCredencial(a) + '</section>';
+  }
+
   function vistaInicio() {
     const js = jugadores();
     const habs = js.filter((j) => hab(j.rut)).length;
@@ -4129,9 +4145,11 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
         '<div class="kpi"><small>Firmas pendientes</small><b>' + pendFirmas + '</b></div>';
     }
     const semana = proximos(S.view.entrenamientos).filter((e) => e.fecha <= C.sumarDias(HOY, 7));
-    const hero = '<section class="perfil bienvenida"><div class="perfil-fila"><img class="hero-escudo" src="' + ESCUDO + '" alt=""><div class="crece">' +
-      '<small class="hero-sub">Temporada ' + ANIO + '</small><h2>Hola, ' + h(yo().nombre.split(/\s+/)[0]) + '</h2>' +
-      '<p>' + (prox ? 'Próximo partido: ' + h(prox.categoria) + ' vs ' + h(prox.rival) + ' · ' + h(fCorta(prox.fecha)) + ' ' + h(prox.hora) + ' hrs' : 'No hay partidos programados') + '</p></div></div></section>';
+    const u = yo();
+    const hero = '<section class="perfil bienvenida"><div class="perfil-fila">' + (u.foto ? fotoCredencial(u) : '<img class="hero-escudo" src="' + ESCUDO + '" alt="">') + '<div class="crece">' +
+      '<small class="hero-sub">Temporada ' + ANIO + '</small><h2>Hola, ' + h(u.nombre.split(/\s+/)[0]) + '</h2>' +
+      '<p>' + (prox ? 'Próximo partido: ' + h(prox.categoria) + ' vs ' + h(prox.rival) + ' · ' + h(fCorta(prox.fecha)) + ' ' + h(prox.hora) + ' hrs' : 'No hay partidos programados') + '</p></div></div>' +
+      botonesCredencial(u) + '</section>';
     const mes = new Date().getMonth();
     const cumples = C.cumpleanosDelMes(S.view, mes, ANIO);
     const temporada = (S.view.cambiosTemporada || []).filter((x) => x.anio === ANIO && x.cambios.length).pop();
@@ -5140,6 +5158,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     const claveIni = S.apo ? S.view.apoderado.claveInicial : j.claveInicial;
     return (ent ? '<div class="aviso info">También eres <b>' + h(ent.cargo || 'entrenador') + '</b>. Para tu perfil de entrenador sal y entra con tu usuario <b>' + h(ent.rut.replace('usr:', '')) + '</b>.</div>' : '') +
       (claveIni ? '<div class="aviso">Estás usando tu clave inicial (4 primeros dígitos del RUT). <button class="btn-texto" data-act="clave">Cámbiala aquí</button></div>' : '') +
+      (S.apo ? tarjetaApoderado() : '') +
       (S.apo ? '<div class="aviso info">Estás viendo el perfil de <b>' + h(j.nombre) + '</b> como su apoderado. Puedes confirmar citaciones, pagar, informar pagos y escribir al club por ' + h(j.nombre.split(/\s+/)[0]) + '.</div>' : '') +
       '<section class="perfil"><div class="perfil-fila">' + (j.foto ? '<button class="perfil-foto" data-act="credencial" aria-label="Ver credencial"><img src="' + h(fotoUrl(j.foto)) + '" alt=""><span>' + (j.numero != null ? h(j.numero) : '') + '</span></button>' : '<div class="numero">' + (j.numero != null ? h(j.numero) : '–') + '</div>') + '<div class="crece"><h2>' + h(j.nombre) + '</h2>' +
       '<p>' + h(etiqueta(j)) + '</p>' + (fed ? insignia('Habilitado para jugar', 'ok') : insignia('No habilitado · federativo pendiente', 'mal')) + '</div></div>' +
