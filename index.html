@@ -4348,13 +4348,15 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     const fila = (id, nombre, detalle, extra) => '<li class="envolver"><span class="ico-celda c-finanzas">' + icono('finanzas') + '</span><div class="crece"><b>' + h(nombre) + '</b><small>' + detalle + '</small>' +
       '<div class="fila insignias">' + medios(id) + '</div><div class="fila insignias">' + extra + '</div></div></li>';
     return seccion('Cobros y medios de pago', '<ul class="lista">' +
-      fila('cuota', 'Mensualidad', 'Monto según categoría · vence el día ' + S.view.config.diaVencimiento, '<button class="btn mini" data-act="editarMedios" data-concepto="cuota">Medios de pago</button>') +
-      fila('federativo', 'Federativo ' + ANIO, clp(S.view.config.montoFederativo) + ' · habilita para jugar', '<button class="btn mini" data-act="editarMedios" data-concepto="federativo">Medios de pago</button>') +
+      // Mensualidad y federativo son fijos: no se eliminan; sus montos se cambian en Ajustes.
+      fila('cuota', 'Mensualidad', 'Monto según categoría · vence el día ' + S.view.config.diaVencimiento, '<button class="btn mini" data-act="editarMedios" data-concepto="cuota">Medios de pago</button><button class="btn mini" data-act="tab" data-tab="ajustes">Editar montos</button>') +
+      fila('federativo', 'Federativo ' + ANIO, clp(S.view.config.montoFederativo) + ' · habilita para jugar', '<button class="btn mini" data-act="editarMedios" data-concepto="federativo">Medios de pago</button><button class="btn mini" data-act="tab" data-tab="ajustes">Editar monto</button>') +
       (S.view.cobros || []).map((c) => {
         const aplica = js.filter((j) => C.cobroAplica(c, j));
         const pag = aplica.filter((j) => C.cobroPagado(S.view, c.id, j.rut)).length;
         return fila(c.id, c.nombre + (c.activo === false ? ' (pausado)' : ''), clp(c.monto) + ' · ' + (c.categorias.length ? h(cortoCats(c.categorias)) : 'Todo el club') + (c.vence ? ' · vence ' + h(fCorta(c.vence)) : '') + ' · <b>' + pag + '/' + aplica.length + '</b> pagados',
-          '<button class="btn mini primario" data-act="verCobro" data-id="' + c.id + '">Pagos</button><button class="btn mini" data-act="editarCobro" data-id="' + c.id + '">Editar</button>');
+          '<button class="btn mini primario" data-act="verCobro" data-id="' + c.id + '">Pagos</button><button class="btn mini" data-act="editarCobro" data-id="' + c.id + '">Editar</button>' +
+          '<button class="btn mini peligro" data-act="borrarCobro" data-id="' + c.id + '">Eliminar</button>');
       }).join('') + '</ul>', btnTexto('Nuevo cobro', 'nuevoCobro'), 'Activa o desactiva el link de pago y la transferencia por concepto. Los datos de transferencia se editan en Ajustes.');
   }
 
@@ -6146,7 +6148,13 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     }, 'Medios de pago guardados')),
     nuevoCobro: () => abrirModal('Nuevo cobro', formCobro(), (o) => accion('cobro.guardar', Object.assign(o, { usarLink: !!o.usarLink, usarTransferencia: !!o.usarTransferencia, activo: !!o.activo }), 'Cobro creado: los jugadores ya lo ven')),
     editarCobro: (d) => abrirModal('Editar cobro', formCobro(S.view.cobros.find((c) => c.id === d.id)), (o) => accion('cobro.guardar', Object.assign(o, { usarLink: !!o.usarLink, usarTransferencia: !!o.usarTransferencia, activo: !!o.activo }), 'Cobro guardado')),
-    borrarCobro: (d) => { if (confirm('¿Eliminar este cobro y sus pagos registrados?')) enviarConError(accion('cobro.eliminar', { id: d.id }, 'Cobro eliminado')); },
+    borrarCobro: (d) => {
+      const c = S.view.cobros.find((x) => x.id === d.id);
+      const pagos = Object.values((S.view.pagosCobro || {})[d.id] || {}).filter((p) => p && p.pagado).length;
+      if (!c || !confirm('¿Eliminar el cobro "' + c.nombre + '"?' + (pagos ? '\n\nTiene ' + pagos + ' pago(s) registrado(s) que también se borran de Finanzas. Si sólo quieres que los jugadores dejen de verlo, mejor edítalo y desmarca "Cobro activo".' : ''))) return;
+      cerrarModal();
+      enviarConError(accion('cobro.eliminar', { id: d.id }, 'Cobro eliminado'));
+    },
     verCobro: (d) => { const c = S.view.cobros.find((x) => x.id === d.id); abrirModal(c.nombre, vistaCobro(c)); },
     marcarCobro: async (d) => {
       const pagado = C.cobroPagado(S.view, d.id, d.rut);
