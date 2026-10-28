@@ -473,7 +473,7 @@ table.tabla { width: 100%; border-collapse: collapse; font-size: 14px; }
 .perfil .datos b { font-size: 16px; }
 .perfil .btn { position: relative; z-index: 1; }
 .bienvenida::after { display: none; }
-.perfil.compacta { padding: 16px 18px; margin-bottom: 14px; background: linear-gradient(135deg, #3E2B04 0%, #9A6F12 60%, #5A3F07 100%); }
+.perfil.compacta { padding: 16px 18px; margin-bottom: 14px; background: radial-gradient(90% 80% at 0% 100%, rgba(200, 16, 46, .45), transparent 60%), linear-gradient(135deg, #0B1A4A 0%, #14307A 60%, #0E2260 100%); }
 .perfil.compacta::before { display: none; }
 .perfil.compacta h2 { font-size: 19px; }
 .perfil.compacta p { margin-bottom: 0; }
@@ -5564,8 +5564,8 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
   /*
    * Cada credencial conserva los colores del club, pero con un tono distinto:
    * menores (Mini, Infantil, Cadete) rojo con tintes azules; Juvenil, Junior, Espoirs y Master azul con rojo en la esquina;
-   * Honor azul con marco dorado, borde derecho dorado y borde izquierdo rojo; entrenadores azul con rojo y dorado en las esquinas;
-   * directiva rojo con azul y dorado; apoderados dorado con azul y rojo.
+   * Honor azul con marco dorado, borde derecho dorado y borde izquierdo rojo; entrenadores rojo con azul y dorado;
+   * directiva dorado con azul y rojo; apoderados azul con tintes rojos.
    * g = brillos de las esquinas: arriba derecha, abajo izquierda, abajo derecha, arriba izquierda.
    */
   const AZUL_T = (a) => 'rgba(31,62,148,' + a + ')', ROJO_T = (a) => 'rgba(200,16,46,' + a + ')', ORO_T = (a) => 'rgba(232,177,33,' + a + ')';
@@ -5573,15 +5573,15 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     azul: { f: ['#0B1A4A', '#14307A', '#0E2260'], g: [ORO_T(.28), ROJO_T(.35)], tarjeta: ['#1A3A8F', '#0C1C52'], etq: '#E8B121', borde: '#E8B121' },
     rojo: { f: ['#4A0812', '#9E1229', '#5C0A17'], g: [AZUL_T(.6), AZUL_T(.6), '', AZUL_T(.3)], tarjeta: ['#B5182F', '#5E0A18'], etq: '#F5C542', borde: '#E8B121' },
     honor: { f: ['#0B1A4A', '#14307A', '#0E2260'], g: ['rgba(255,210,80,.92)', ROJO_T(.58), ORO_T(.7), ROJO_T(.45)], tarjeta: ['#1C3A8A', '#2A2A55'], etq: '#FFD95C', borde: '#F7CF4D', marco: '2px' },
-    entrenador: { f: ['#0B1A4A', '#14307A', '#0E2260'], g: [ORO_T(.45), ROJO_T(.45), ORO_T(.3), ROJO_T(.35)], tarjeta: ['#1A3A8F', '#0C1C52'], etq: '#E8B121', borde: '#E8B121' },
-    directiva: { f: ['#4A0812', '#9E1229', '#5C0A17'], g: [ORO_T(.45), AZUL_T(.6), AZUL_T(.35), ORO_T(.3)], tarjeta: ['#B5182F', '#5E0A18'], etq: '#F5C542', borde: '#E8B121' },
+    entrenador: { f: ['#4A0812', '#9E1229', '#5C0A17'], g: [ORO_T(.45), AZUL_T(.6), AZUL_T(.35), ORO_T(.3)], tarjeta: ['#B5182F', '#5E0A18'], etq: '#F5C542', borde: '#E8B121' },
+    apoderado: { f: ['#0B1A4A', '#14307A', '#0E2260'], g: [ROJO_T(.4), ROJO_T(.5), '', ROJO_T(.25)], tarjeta: ['#1A3A8F', '#0C1C52'], etq: '#E8B121', borde: '#E8B121' },
     oro: { f: ['#3E2B04', '#9A6F12', '#5A3F07'], g: [AZUL_T(.55), ROJO_T(.45), AZUL_T(.3), 'rgba(255,238,170,.35)'], tarjeta: ['#B38719', '#5A3F07'], etq: '#FFEAA6', borde: '#FFFFFF' },
   };
 
   function temaCredencial(u) {
     if (u.rol === 'entrenador') return 'entrenador';
-    if (u.rol === 'directiva') return 'directiva';
-    if (u.rol === 'apoderado') return 'oro';
+    if (u.rol === 'directiva') return 'oro';
+    if (u.rol === 'apoderado') return 'apoderado';
     const b = C.baseCategoria(u.categoria);
     if (['Mini', 'Infantil', 'Cadete'].includes(b)) return 'rojo';
     return b === 'Adultos Galos Honor' ? 'honor' : 'azul';
