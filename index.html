@@ -6232,5 +6232,26 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
 })();
 
 </script>
+  <script type="module">
+  // Firebase (proyecto vieux-gaulois). La configuración web es pública por diseño;
+  // la seguridad de los datos se define con las reglas de Firebase.
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
+  import { getAnalytics, isSupported } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-analytics.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyC0WhmbtrvB6irfWP8Mz6p8e6lvrEfbuwA",
+    authDomain: "vieux-gaulois.firebaseapp.com",
+    projectId: "vieux-gaulois",
+    storageBucket: "vieux-gaulois.firebasestorage.app",
+    messagingSenderId: "610861505294",
+    appId: "1:610861505294:web:02f97139ea22026782955f",
+    measurementId: "G-ZMGJM5ZTXG"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  // Analytics no funciona en todos los navegadores (p. ej. abriendo el archivo local).
+  isSupported().then((ok) => { if (ok) getAnalytics(app); }).catch(() => {});
+  window.firebaseApp = app;
+  </script>
 </body>
 </html>
