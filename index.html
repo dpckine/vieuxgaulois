@@ -3954,7 +3954,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
   // ---------- Pestañas por rol ----------
   const NOMBRES = {
     inicio: 'Inicio', avisos: 'Avisos', jugadores: 'Jugadores', finanzas: 'Finanzas', entrenamientos: 'Entrenamientos', partidos: 'Partidos',
-    lesiones: 'Lesiones', documentos: 'Documentos', convenios: 'Convenios', ajustes: 'Ajustes', calendario: 'Calendario', perfil: 'Mi perfil', mas: 'Más',
+    lesiones: 'Lesiones', documentos: 'Documentos', convenios: 'Convenios y servicios recomendados', ajustes: 'Ajustes', calendario: 'Calendario', perfil: 'Mi perfil', mas: 'Más',
     chat: 'Mensajes', pizarra: 'Pizarra', jugadas: 'Jugadas',
     equipo: 'Directiva y entrenadores',
     estadisticas: 'Estadísticas', fisico: 'Evaluación física', encuestas: 'Encuestas', galeria: 'Galería', inventario: 'Inventario',
@@ -4863,10 +4863,10 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     if (esDir()) {
       const prop = propuestasConvenio();
       return (prop.length ? seccion('Propuestas por revisar', '<ul class="lista">' + prop.map(itemPropuesta).join('') + '</ul>', '', 'Se publican sólo cuando las apruebas.') : '') +
-        seccion('Convenios publicados', lista, '', 'Todo el club ve estos convenios.');
+        seccion('Publicados', lista, '', 'Todo el club ve estos convenios y servicios.');
     }
     const mias = S.view.convenios.filter((c) => c.propuestoPor === yoId() && !C.convenioPublicado(c));
-    return seccion('Convenios del club', lista) +
+    return seccion('Del club', lista) +
       seccion('Mis propuestas', mias.length ? '<ul class="lista">' + mias.map(itemPropuesta).join('') + '</ul>' : vacio('¿Conoces una empresa que pueda dar un beneficio al club? Propónla y la directiva la revisará.'),
         btnTexto('Proponer', 'proponerConvenio'));
   }
