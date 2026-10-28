@@ -184,6 +184,8 @@ a { color: var(--primario); }
 .grupo-form input:focus { border-bottom: 2px solid var(--primario); padding-bottom: 15px; }
 .login .btn.ancho { margin-top: 4px; }
 .login-ayuda { font-size: 13px; color: var(--suave); margin: 18px 8px; }
+.pasos-instalar { margin: 4px 0 0; padding-left: 22px; line-height: 1.6; }
+.pasos-instalar li { margin-bottom: 8px; }
 .demo { margin-top: 8px; background: var(--sup-1); border-radius: var(--radio); overflow: hidden; text-align: left; border: 1px solid var(--contorno-2); }
 .demo > b { display: block; padding: 14px 16px 0; font-size: 14px; font-weight: 600; color: var(--primario); }
 .demo > span { display: block; padding: 0 16px 8px; font-size: 12px; color: var(--suave); }
@@ -3642,6 +3644,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     grupo: '<path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-5 4V6a1 1 0 0 1 1-1z"/><circle cx="9" cy="11" r="1"/><circle cx="12.5" cy="11" r="1"/><circle cx="16" cy="11" r="1"/>',
     sticker: '<path d="M14 21H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v8z"/><path d="M14 21v-4a3 3 0 0 1 3-3h4"/><path d="M8.5 9.5h.01M15.5 9.5h.01M8.5 14a4.5 4.5 0 0 0 4 1.5"/>',
     check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    instalar: '<rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M12 7v7M9 11.5l3 3 3-3M10.5 18.5h3"/>',
     cambiar: '<path d="M7 4L3 8l4 4M3 8h14M17 12l4 4-4 4M21 16H7"/>',
     inicio: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
     avisos: '<path d="M3 10v4a1 1 0 0 0 1 1h3l7 4.5V4.5L7 9H4a1 1 0 0 0-1 1z"/><path d="M17.5 8.5a5 5 0 0 1 0 7"/>',
@@ -3806,7 +3809,28 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
       '<div class="error" id="login-error"></div>' +
       '<button class="btn primario ancho">Ingresar</button></form>' +
       '<p class="login-ayuda"><b>Jugadores y apoderados:</b> RUT y los 4 primeros dígitos del RUT.<br><b>Entrenadores y directiva:</b> usuario y clave entregados por la directiva.</p>' +
+      (puedeInstalar() ? '<button type="button" class="btn ancho" data-act="instalarApp">' + icono('instalar') + ' Instalar la app en el celular</button>' : '') +
       demo + '</div></div>';
+  }
+
+  // ---------- Instalar la app (PWA) ----------
+  // Android/Chrome ofrece beforeinstallprompt; en iPhone se instala desde Compartir → "Agregar a inicio".
+  const instalada = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  const puedeInstalar = () => location.protocol !== 'file:' && !instalada() && (!!S.instalar || esIOS() || /Android/.test(navigator.userAgent));
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); S.instalar = e; if (S.modo && $('#modal').hidden) render(); });
+  window.addEventListener('appinstalled', () => { S.instalar = null; toast('App instalada: ábrela desde el inicio del celular', 'ok'); render(); });
+  async function instalarApp() {
+    if (S.instalar) {
+      const e = S.instalar; S.instalar = null;
+      e.prompt();
+      await e.userChoice.catch(() => {});
+      render();
+      return;
+    }
+    const pasos = esIOS()
+      ? '<li>Abre esta página en <b>Safari</b>.</li><li>Toca el botón <b>Compartir</b> (el cuadrado con la flecha hacia arriba).</li><li>Elige <b>"Agregar a inicio"</b> y luego <b>Agregar</b>.</li>'
+      : '<li>Abre esta página en <b>Chrome</b>.</li><li>Toca el menú <b>⋮</b> (arriba a la derecha).</li><li>Elige <b>"Instalar app"</b> o <b>"Agregar a la pantalla principal"</b>.</li>';
+    abrirModal('Instalar la app', '<ol class="pasos-instalar">' + pasos + '</ol><p class="login-ayuda">La app queda en el inicio del celular con el escudo del club y se abre a pantalla completa.</p>');
   }
 
   // ---------- Firma de documentos (consentimiento / becados) ----------
@@ -3927,6 +3951,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
 
   function seccionCuenta() {
     return seccion('Cuenta', '<ul class="lista clic">' +
+      (puedeInstalar() ? '<li data-act="instalarApp"><span class="ico-celda c-gris">' + icono('instalar') + '</span><div class="crece"><b>Instalar la app en el celular</b></div><span class="chevron">' + icono('flecha') + '</span></li>' : '') +
       '<li data-act="clave"><span class="ico-celda c-gris">' + icono('llave') + '</span><div class="crece"><b>Cambiar clave</b></div><span class="chevron">' + icono('flecha') + '</span></li>' +
       '<li data-act="salir"><span class="ico-celda c-rojo">' + icono('salir') + '</span><div class="crece"><b class="rojo">Cerrar sesión</b></div></li></ul>');
   }
@@ -5848,6 +5873,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
 
   // ---------- Acciones de botones ----------
   const ACCIONES = {
+    instalarApp: () => instalarApp(),
     tab: (d) => { cerrarModal(); S.tab = d.tab; S.verPasados = false; S.hilo = null; render(); window.scrollTo(0, 0); },
     segmento: (d) => {
       if (d.nombre === 'anioFin') S.anioFin = Number(d.valor);
