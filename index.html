@@ -5500,13 +5500,13 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
 
   // ---------- Credencial digital ----------
   function vistaCredencial(j) {
-    const vencidas = S.view.config.mesesCobro.filter((m) => estadoMes(j.rut, ANIO, m) === 'vencido').length;
+    // Sin estado de cuotas: la credencial se muestra en comercios y no debe exponer deudas.
     return '<div class="credencial">' +
       '<div class="cred-cab"><img src="' + ESCUDO + '" alt=""><div class="crece"><b>VIEUX GAULOIS</b><small>Handball Club</small></div><span>Temporada ' + ANIO + '</span></div><div class="franja" aria-hidden="true"><i></i><i></i><i></i></div>' +
       '<div class="cred-cuerpo">' + avatarFoto(j, 'cred-foto') + '<div class="crece"><h3>' + h(j.nombre) + '</h3>' +
       '<p><small>RUT</small><b>' + h(C.formatearRut(j.rut)) + '</b></p><p><small>Categoría</small><b>' + h(etiqueta(j)) + '</b></p>' +
       (j.numero != null ? '<p><small>N° camiseta</small><b>' + h(j.numero) + '</b></p>' : '') + '</div></div>' +
-      '<div class="cred-pie">' + insignia('Jugador activo', 'ok') + (vencidas ? insignia(vencidas + ' cuota' + (vencidas > 1 ? 's' : '') + ' pendiente' + (vencidas > 1 ? 's' : ''), 'mal') : insignia('Cuotas al día', 'ok')) +
+      '<div class="cred-pie">' + insignia('Jugador activo', 'ok') +
       '<span class="reloj" data-reloj>' + h(relojTexto()) + '</span></div></div>' +
       '<p class="ayuda">Muéstrala en los convenios del club. La fecha y hora corren en vivo: así se nota que no es una captura de pantalla.</p>' +
       '<div class="modal-pie columna"><button class="btn ancho" data-act="fotoPerfil" data-rut="' + h(j.rut) + '">' + icono('camara') + (j.foto ? ' Cambiar foto' : ' Agregar foto') + '</button></div>';
