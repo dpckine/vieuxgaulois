@@ -1108,7 +1108,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
   // Cada categoría existe en rama masculina y femenina ("Cadete Masculino", "Cadete Femenino").
   // Las cuotas se fijan por categoría base; de Infantil a Juvenil se registra si es 1er o 2do año.
 
-  const CATEGORIAS_BASE = ['Mini', 'Infantil', 'Cadete', 'Juvenil', 'Junior', 'Adultos B', 'Primer Equipo', 'Master'];
+  const CATEGORIAS_BASE = ['Mini', 'Infantil', 'Cadete', 'Juvenil', 'Junior', 'Adultos Galos Espoirs', 'Adultos Galos Honor', 'Master'];
   const RAMAS = ['Masculino', 'Femenino'];
   const CON_ANIO = ['Infantil', 'Cadete', 'Juvenil'];
 
@@ -1593,6 +1593,25 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     }));
   }
 
+  // Cambia el nombre de categorías base: reemplaza los textos exactos ("X", "X Masculino", "X Femenino") y las claves (cuotas).
+  function renombrarCategorias(db, mapa) {
+    const tabla = {};
+    Object.keys(mapa).forEach((viejo) => { tabla[viejo] = mapa[viejo]; RAMAS.forEach((r) => { tabla[viejo + ' ' + r] = mapa[viejo] + ' ' + r; }); });
+    const cambiar = (v) => {
+      if (typeof v === 'string') return Object.prototype.hasOwnProperty.call(tabla, v) ? tabla[v] : v;
+      if (Array.isArray(v)) return v.map(cambiar);
+      if (v && typeof v === 'object') {
+        Object.keys(v).forEach((k) => {
+          const val = cambiar(v[k]);
+          if (Object.prototype.hasOwnProperty.call(tabla, k)) { delete v[k]; v[tabla[k]] = val; } else v[k] = val;
+        });
+      }
+      return v;
+    };
+    Object.keys(db).forEach((k) => { if (k !== 'fotos') db[k] = cambiar(db[k]); });
+    if (db.config && db.config.categoriasBase) db.config.categoriasBase = Array.from(new Set(db.config.categoriasBase));
+  }
+
   // Completa una base guardada con una versión anterior de la app (sin borrar datos).
   function migrar(db) {
     const base = dbVacia();
@@ -1606,6 +1625,8 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
       u.medica = { emergencia: u.contactoEmergencia || '', prevision: u.prevision || '' };
       delete u.contactoEmergencia; delete u.prevision;
     });
+    // v7: las categorías adultas cambian de nombre en toda la base (jugadores, partidos, cuotas, cobros...).
+    if ((db.version || 0) < 7) renombrarCategorias(db, { 'Adultos B': 'Adultos Galos Espoirs', 'Primer Equipo': 'Adultos Galos Honor' });
     db.documentos = db.documentos || base.documentos;
     Object.keys(base.config).forEach((k) => { if (db.config[k] == null) db.config[k] = base.config[k]; });
     if (!db.config.categoriasBase || !db.config.categoriasBase.length) {
@@ -1622,13 +1643,13 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
   function dbVacia() {
     const anio = new Date().getFullYear();
     return {
-      version: 6,
+      version: 7,
       config: {
         club: 'Vieux Gaulois Handball',
         temporada: anio,
         categoriasBase: CATEGORIAS_BASE.slice(),
         categorias: armarCategorias(CATEGORIAS_BASE),
-        cuotas: { Mini: 15000, Infantil: 18000, Cadete: 20000, Juvenil: 22000, Junior: 25000, 'Adultos B': 25000, 'Primer Equipo': 25000, Master: 20000 },
+        cuotas: { Mini: 15000, Infantil: 18000, Cadete: 20000, Juvenil: 22000, Junior: 25000, 'Adultos Galos Espoirs': 25000, 'Adultos Galos Honor': 25000, Master: 20000 },
         montoFederativo: 35000,
         mesesCobro: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
         diaVencimiento: 10,
@@ -1685,21 +1706,21 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
       rut: 'usr:jorge', usuario: 'jorge', rol: 'entrenador', nombre: 'Jorge Pérez', cargo: 'Entrenador Cadetes', telefono: '+56 9 2222 2222', activo: true, creado: hoy,
       claveHash: '87f28f30a50033150d34790d77b007cfd5f43dab18eb5f530ca6174592790396', // jorge1234
     });
-    // Tomás juega en el Primer Equipo (entra con su RUT) y además entrena a la Juvenil (entra con usuario "tomas").
+    // Tomás juega en Adultos Galos Honor (entra con su RUT) y además entrena a la Juvenil (entra con usuario "tomas").
     db.usuarios.push({
       rut: 'usr:tomas', usuario: 'tomas', rol: 'entrenador', nombre: 'Tomás Rojas', cargo: 'Entrenador Juvenil', activo: true, creado: hoy,
       jugadorRut: rutDesdeCuerpo(20123456), claveHash: 'd355c072d67c4714eb6120152e17fad62ced7f0190ad54dce3532321967ea1cb', // tomas1234
     });
-    const PE = 'Primer Equipo Masculino', CAD = 'Cadete Masculino';
+    const PE = 'Adultos Galos Honor Masculino', CAD = 'Cadete Masculino';
     // Dos cumpleaños caen en el mes actual, para verlos en el inicio.
     const mesHoy = String(new Date().getMonth() + 1).padStart(2, '0');
     const diaCumple = String(Math.min(28, new Date().getDate() + 3)).padStart(2, '0');
     const jugadores = [
       add(20123456, { nombre: 'Tomás Rojas', rol: 'jugador', fechaNac: '2001-04-12', categoria: PE, numero: 7, posicion: 'Central', telefono: '+56 9 3333 3333' }),
       add(19876543, { nombre: 'Diego Muñoz', rol: 'jugador', fechaNac: '1998-09-03', categoria: PE, numero: 1, posicion: 'Arquero' }),
-      add(21345678, { nombre: 'Benjamín Soto', rol: 'jugador', fechaNac: '2003-01-25', categoria: 'Adultos B Masculino', numero: 10, posicion: 'Lateral izquierdo' }),
-      add(18765432, { nombre: 'Camila Fuentes', rol: 'jugador', fechaNac: '1996-' + mesHoy + '-05', categoria: 'Primer Equipo Femenino', numero: 9, posicion: 'Pivote' }),
-      add(20555666, { nombre: 'Valentina Araya', rol: 'jugador', fechaNac: '2000-06-18', categoria: 'Primer Equipo Femenino', numero: 14, posicion: 'Extremo derecho', descuento: 50 }),
+      add(21345678, { nombre: 'Benjamín Soto', rol: 'jugador', fechaNac: '2003-01-25', categoria: 'Adultos Galos Espoirs Masculino', numero: 10, posicion: 'Lateral izquierdo' }),
+      add(18765432, { nombre: 'Camila Fuentes', rol: 'jugador', fechaNac: '1996-' + mesHoy + '-05', categoria: 'Adultos Galos Honor Femenino', numero: 9, posicion: 'Pivote' }),
+      add(20555666, { nombre: 'Valentina Araya', rol: 'jugador', fechaNac: '2000-06-18', categoria: 'Adultos Galos Honor Femenino', numero: 14, posicion: 'Extremo derecho', descuento: 50 }),
       add(23456789, { nombre: 'Matías Contreras', rol: 'jugador', fechaNac: '2008-03-08', categoria: 'Juvenil Masculino', anioCategoria: '2', numero: 5, posicion: 'Extremo izquierdo' }),
       add(24567890, { nombre: 'Germán Meinas', rol: 'jugador', fechaNac: '2010-02-11', categoria: CAD, anioCategoria: '2', numero: 1, posicion: 'Arquero' }),
       add(24678901, { nombre: 'Renato Flores', rol: 'jugador', fechaNac: '2010-07-21', categoria: CAD, anioCategoria: '2', numero: 4, posicion: 'Central' }),
@@ -1721,7 +1742,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     // Por su lesión larga, la directiva le suspendió la cuota de este mes y el siguiente.
     jugadores[5].ajustesCuota = [{ id: uid(), tipo: 'suspension', porcentaje: 100, desdeAnio: anio, desdeMes: new Date().getMonth(), meses: 2, motivo: 'Esguince de tobillo, sin entrenar', fecha: hoy, por: 'usr:vieux' }];
     // Ex jugador dado de baja: queda en el historial con el motivo.
-    add(22333444, { nombre: 'Felipe Navarro', rol: 'jugador', fechaNac: '2002-11-02', categoria: 'Adultos B Masculino', numero: 15, posicion: 'Pivote', activo: false,
+    add(22333444, { nombre: 'Felipe Navarro', rol: 'jugador', fechaNac: '2002-11-02', categoria: 'Adultos Galos Espoirs Masculino', numero: 15, posicion: 'Pivote', activo: false,
       baja: { motivo: 'Transferido', detalle: 'Se fue al Club Balonmano Ovalle', fecha: sumarDias(hoy, -40), por: 'usr:vieux' } });
     const ficha = (j, m) => { j.medica = Object.assign({ sangre: '', alergias: '', condiciones: '', medicamentos: '', seguro: '', prevision: '', emergencia: '', obs: '' }, m); };
     ficha(jugadores[0], { sangre: 'O+', alergias: 'Penicilina', prevision: 'Fonasa', seguro: 'Seguro deportivo Federación', emergencia: 'María Rojas (madre) +56 9 1111 2222' });
@@ -1751,7 +1772,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     // Entrenamientos: martes y jueves de las últimas 3 semanas (con asistencia) y las próximas 2.
     const base = new Date();
     base.setDate(base.getDate() - ((base.getDay() + 5) % 7)); // martes de esta semana (o el anterior)
-    const adultos = [PE, 'Adultos B Masculino', 'Primer Equipo Femenino'];
+    const adultos = [PE, 'Adultos Galos Espoirs Masculino', 'Adultos Galos Honor Femenino'];
     for (let s = -3; s <= 1; s++) {
       [0, 2].forEach((off) => {
         const fecha = sumarDias(hoyISO(base), s * 7 + off);
@@ -1792,7 +1813,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     });
     db.partidos.push({
       id: uid(), fecha: sumarDias(hoy, 11), hora: '12:00', rival: 'Deportivo Costa', lugar: 'Polideportivo Costa',
-      condicion: 'Visita', competicion: 'Liga Metropolitana', categoria: 'Primer Equipo Femenino', vestimenta: 'Negras', indicaciones: db.config.indicacionesCitacion,
+      condicion: 'Visita', competicion: 'Liga Metropolitana', categoria: 'Adultos Galos Honor Femenino', vestimenta: 'Negras', indicaciones: db.config.indicacionesCitacion,
       citados: ruts([[jugadores[3], 'pendiente'], [jugadores[4], 'pendiente']]), presentacion: '10:30', resultado: null, citacionFecha: hoy, citadoPor: 'usr:vieux',
     });
     db.partidos.push({
@@ -1863,7 +1884,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     // Jugada de ejemplo: cruce central-lateral derecho y lanzamiento.
     db.jugadas.push({
       id: uid(), nombre: 'Cruce central - lateral derecho', descripcion: 'El central fija hacia la derecha, el lateral derecho cruza por detrás, recibe y lanza.',
-      categorias: [CAD, PE, 'Primer Equipo Femenino'], autor: 'usr:jorge', fecha: hoy, cancha: 'media',
+      categorias: [CAD, PE, 'Adultos Galos Honor Femenino'], autor: 'usr:jorge', fecha: hoy, cancha: 'media',
       pasos: [
         { fichas: formacionInicial(), trazos: [{ t: 'mov', p: [[27.5, 10], [30, 13]] }, { t: 'mov', p: [[29, 15], [30.5, 9.2]] }] },
         { fichas: formacionInicial({ CE: [30, 13], LD: [30.5, 9.2] }, [30.6, 13.5]), trazos: [{ t: 'pase', p: [[30, 13], [30.5, 9.2]] }] },
