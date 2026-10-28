@@ -3332,7 +3332,216 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     foto(id) { return (this.db.fotos || {})[id] || ''; },
   };
 
-  const B = () => (S.modo === 'servidor' ? Servidor : Local);
+  /*
+   * Nube: Firebase (Authentication + Firestore), para la app publicada sin servidor propio.
+   * - Los datos del club van en club/meta + club/p0..pN (el JSON partido en trozos) y cada foto en fotos/{id}.
+   * - Cada clave distinta es una cuenta de Firebase Auth: correo y contraseña se derivan del hash de la clave,
+   *   así no hay que administrar cuentas de Firebase a mano (resetear una clave = otra cuenta).
+   * - acceso/{id} guarda el hash vigente, el rol y si está activo; nadie lo lee desde la app.
+   *   cuentas/{uid} une la cuenta de Firebase con el usuario del club. Ver firestore.rules.
+   * - En la base compartida los usuarios con clave propia llevan claveHash '1' (el hash real sólo está en acceso).
+   */
+  const FIREBASE_SDK = 'https://www.gstatic.com/firebasejs/13.1.0/';
+  const FIREBASE_CONFIG = {
+    apiKey: 'AIzaSyC0WhmbtrvB6irfWP8Mz6p8e6lvrEfbuwA',
+    authDomain: 'vieux-gaulois.firebaseapp.com',
+    projectId: 'vieux-gaulois',
+    storageBucket: 'vieux-gaulois.firebasestorage.app',
+    messagingSenderId: '610861505294',
+    appId: '1:610861505294:web:02f97139ea22026782955f',
+    measurementId: 'G-ZMGJM5ZTXG',
+  };
+  const TROZO = 300000; // caracteres por documento (Firestore admite hasta 1 MiB por documento)
+  const HASH_REAL = /^[0-9a-f]{64}$/;
+  const puedeEntrar = (id) => !!C.normalizarRut(id) || /^usr:/.test(id);
+
+  const Nube = {
+    fb: null, id: null, h: null, db: null, rev: -1, fotos: {}, pidiendo: {}, escucha: null,
+
+    async iniciar() {
+      const [app, auth, fs] = await Promise.all(['firebase-app.js', 'firebase-auth.js', 'firebase-firestore.js'].map((m) => import(FIREBASE_SDK + m)));
+      const fapp = app.initializeApp(FIREBASE_CONFIG);
+      this.fb = { auth: auth.getAuth(fapp), A: auth, F: fs, fs: fs.getFirestore(fapp) };
+      import(FIREBASE_SDK + 'firebase-analytics.js').then((an) => an.isSupported().then((ok) => { if (ok) an.getAnalytics(fapp); })).catch(() => {});
+      // Sesión guardada en este navegador.
+      const user = await new Promise((r) => { const fin = auth.onAuthStateChanged(this.fb.auth, (u) => { fin(); r(u); }); });
+      if (!user) return;
+      try {
+        const c = await fs.getDoc(this.ref('cuentas', user.uid));
+        if (!c.exists()) throw new Error('sin cuenta');
+        this.id = c.data().id; this.h = c.data().h;
+        await this.cargar();
+      } catch (e) { await this.salir(); }
+    },
+
+    ref(...p) { return this.fb.F.doc(this.fb.fs, ...p); },
+    correo(id, h) { return id.replace(':', '.').toLowerCase() + '.' + h.slice(0, 12) + '@vieuxgaulois.app'; },
+
+    // Inicia sesión en Firebase con la cuenta que corresponde a (id, hash de la clave) y la valida contra acceso/{id}.
+    async entrar(id, h) {
+      const { auth } = this.fb, A = this.fb.A, F = this.fb.F;
+      const correo = this.correo(id, h), pass = await sha256('vg-fb|' + h);
+      let cred, nueva = false;
+      try { cred = await A.signInWithEmailAndPassword(auth, correo, pass); } catch (e) {
+        if (!/invalid-credential|user-not-found|invalid-login-credentials/.test(e.code || '')) throw this.error(e);
+        try { cred = await A.createUserWithEmailAndPassword(auth, correo, pass); nueva = true; } catch (e2) { throw this.error(e2); }
+      }
+      const cuenta = this.ref('cuentas', cred.user.uid);
+      try { await F.setDoc(cuenta, { id, h }); } catch (e) {
+        // Primer uso: la base está vacía y entra la cuenta inicial de la directiva.
+        let ok = false;
+        if (id === C.CUENTA_DIRECTIVA.rut && h === C.CUENTA_DIRECTIVA.claveHash) {
+          try { await F.setDoc(this.ref('acceso', id), { h, rol: 'directiva', activo: true }); await F.setDoc(cuenta, { id, h }); ok = true; } catch (e3) { /* ya inicializada */ }
+        }
+        if (!ok) {
+          if (nueva) await cred.user.delete().catch(() => {});
+          await A.signOut(auth).catch(() => {});
+          throw new ErrorApi('Usuario o clave incorrectos');
+        }
+      }
+      this.id = id; this.h = h;
+    },
+
+    async login(ident, clave) {
+      const id = C.idDeIngreso(ident);
+      if (!id) throw new ErrorApi('Ingresa tu RUT (jugadores) o tu usuario (entrenadores y directiva)');
+      if (!this.fb) await this.iniciar().catch(() => { throw new ErrorApi('Sin conexión, inténtalo de nuevo'); });
+      await this.entrar(id, await C.hashClave(id, String(clave), sha256));
+      await this.cargar();
+      return C.viewFor(this.db, id);
+    },
+
+    error(e) {
+      const c = (e && e.code) || '';
+      if (/permission-denied|unauthenticated/.test(c)) return new ErrorApi('Tu sesión ya no es válida, vuelve a entrar', 401);
+      if (/too-many-requests/.test(c)) return new ErrorApi('Demasiados intentos, espera unos minutos');
+      if (/network|unavailable/.test(c)) return new ErrorApi('Sin conexión, inténtalo de nuevo');
+      return e instanceof ErrorApi ? e : new ErrorApi((e && e.message) || 'Error de conexión');
+    },
+
+    // Lee la base completa (meta + trozos). Si un trozo es de otra revisión (escritura en curso), reintenta.
+    async leer(tx) {
+      const F = this.fb.F, get = (r) => (tx ? tx.get(r) : F.getDoc(r));
+      const meta = await get(this.ref('club', 'meta'));
+      if (!meta.exists()) return { db: null, rev: 0, partes: 0 };
+      const { rev, partes } = meta.data();
+      const trozos = await Promise.all(Array.from({ length: partes }, (_, i) => get(this.ref('club', 'p' + i))));
+      if (trozos.some((t) => !t.exists() || t.data().rev !== rev)) { if (tx) throw new Error('lectura inconsistente'); return null; }
+      return { db: JSON.parse(trozos.map((t) => t.data().d).join('')), rev, partes };
+    },
+
+    async cargar() {
+      let r = null;
+      for (let i = 0; i < 4 && !r; i++) r = await this.leer();
+      if (!r) throw new ErrorApi('No se pudieron leer los datos, inténtalo de nuevo');
+      if (!r.db) {
+        // Base vacía: la crea la directiva al entrar por primera vez.
+        await this.cambiar(() => true);
+      } else { this.db = C.migrar(r.db); this.rev = r.rev; }
+      // Cambio de temporada pendiente: lo aplica el primer entrenador o directiva que entra en el año nuevo.
+      const yo = this.db.usuarios.find((u) => u.rut === this.id);
+      if (yo && ['directiva', 'entrenador'].includes(yo.rol) && C.cambioTemporada(C.clone(this.db))) await this.cambiar((db) => C.cambioTemporada(db));
+      this.escuchar();
+    },
+
+    // Avisa cuando otro usuario guarda cambios; la interfaz los toma en la siguiente revisión (cada 15 s).
+    escuchar() {
+      if (this.escucha) return;
+      this.escucha = this.fb.F.onSnapshot(this.ref('club', 'meta'), async (s) => {
+        if (!s.exists() || s.data().rev === this.rev) return;
+        const r = await this.leer().catch(() => null);
+        if (r && r.db && r.rev > this.rev) { this.db = C.migrar(r.db); this.rev = r.rev; }
+      }, () => {});
+    },
+
+    /*
+     * Aplica fn(db) sobre la versión más reciente dentro de una transacción y guarda.
+     * Además mantiene acceso/{id} al día (claves, roles, altas y bajas) y mueve las fotos a su colección.
+     */
+    async cambiar(fn) {
+      const F = this.fb.F;
+      try {
+        const nuevo = await F.runTransaction(this.fb.fs, async (tx) => {
+          const r = await this.leer(tx);
+          const antes = r.db ? C.migrar(r.db) : C.dbVacia();
+          const db = C.clone(antes);
+          const res = await fn(db);
+          if (res === false) return null;
+          // Accesos
+          const previos = r.db ? new Map(antes.usuarios.map((u) => [u.rut, u])) : new Map();
+          for (const u of db.usuarios) {
+            if (!puedeEntrar(u.rut)) continue;
+            const p = previos.get(u.rut);
+            const datos = { rol: u.rol, activo: u.activo !== false };
+            if (HASH_REAL.test(u.claveHash || '')) { datos.h = u.claveHash; u.claveHash = '1'; } else if (!u.claveHash && (!p || p.claveHash)) {
+              // Clave inicial de jugadores y apoderados: los 4 primeros dígitos del RUT.
+              datos.h = await C.hashClave(u.rut, C.claveInicial(u.rut), sha256);
+              if (!['jugador', 'apoderado'].includes(u.rol)) datos.h = '';
+            }
+            if (!u.claveHash) delete u.claveHash;
+            const cambio = !p || datos.h != null || p.rol !== u.rol || (p.activo !== false) !== datos.activo;
+            if (cambio && (r.db || u.rut === this.id)) tx.set(this.ref('acceso', u.rut), datos, { merge: true });
+          }
+          // Fotos: fuera de la base, una por documento.
+          Object.keys(db.fotos || {}).forEach((id) => { if (!(antes.fotos || {})[id]) tx.set(this.ref('fotos', id), { d: db.fotos[id] }); this.fotos[id] = db.fotos[id]; });
+          (db.fotosBorradas || []).forEach((id) => { tx.delete(this.ref('fotos', id)); delete this.fotos[id]; });
+          db.fotos = {}; db.fotosBorradas = []; db.notificar = [];
+          // Guardar en trozos
+          const json = JSON.stringify(db), rev = r.rev + 1;
+          const partes = Math.max(1, Math.ceil(json.length / TROZO));
+          for (let i = 0; i < partes; i++) tx.set(this.ref('club', 'p' + i), { rev, d: json.slice(i * TROZO, (i + 1) * TROZO) });
+          for (let i = partes; i < r.partes; i++) tx.delete(this.ref('club', 'p' + i));
+          tx.set(this.ref('club', 'meta'), { rev, partes, actualizado: F.serverTimestamp(), por: this.id || '' });
+          return { db, rev };
+        });
+        if (nuevo) { this.db = nuevo.db; this.rev = nuevo.rev; }
+      } catch (e) {
+        // Errores de Firebase traen code; los de las reglas del club (applyAction) sólo el mensaje.
+        throw e && e.code ? this.error(e) : this.error(new ErrorApi((e && e.message) || 'Error'));
+      }
+    },
+
+    async estado() { return this.id && this.db ? C.viewFor(this.db, this.id) : null; },
+
+    async accion(type, payload) {
+      const preparada = await C.prepararAccion({ type, payload }, sha256);
+      await this.cambiar((db) => { C.applyAction(db, this.id, preparada); });
+      return C.viewFor(this.db, this.id);
+    },
+
+    async clave(actual, nueva) {
+      if ((await C.hashClave(this.id, String(actual), sha256)) !== this.h) throw new ErrorApi('La clave actual no es correcta');
+      if (!/^\S{4,40}$/.test(String(nueva || ''))) throw new ErrorApi('La nueva clave debe tener al menos 4 caracteres, sin espacios');
+      const h = await C.hashClave(this.id, String(nueva), sha256);
+      // El hash nuevo pasa por cambiar() hacia acceso/{id}; luego se entra con la cuenta de la clave nueva.
+      await this.cambiar((db) => { db.usuarios.find((u) => u.rut === this.id).claveHash = h; });
+      await this.entrar(this.id, h);
+      return C.viewFor(this.db, this.id);
+    },
+
+    async salir() {
+      if (this.escucha) { this.escucha(); this.escucha = null; }
+      this.id = null; this.h = null; this.db = null; this.rev = -1;
+      if (this.fb) await this.fb.A.signOut(this.fb.auth).catch(() => {});
+    },
+
+    // Las fotos se piden una vez y se guardan en memoria; al llegar se vuelve a dibujar.
+    foto(id) {
+      if (this.fotos[id]) return this.fotos[id];
+      if (!this.pidiendo[id] && this.fb) {
+        this.pidiendo[id] = true;
+        this.fb.F.getDoc(this.ref('fotos', id)).then((s) => {
+          if (!s.exists()) return;
+          this.fotos[id] = s.data().d;
+          S.fotosNuevas = true;
+          if ($('#modal').hidden) { S.fotosNuevas = false; render(); }
+        }).catch(() => {}).finally(() => { delete this.pidiendo[id]; });
+      }
+      return '';
+    },
+  };
+
+  const B = () => (S.modo === 'servidor' ? Servidor : S.modo === 'nube' ? Nube : Local);
 
   // Para el apoderado, cada acción va a nombre del hijo o hija que está mirando.
   const llamar = (type, payload) => B().accion(type, S.apo ? Object.assign({ hijo: S.view.yo }, payload) : payload);
@@ -5523,6 +5732,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
   const PUSH_OK = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   const esIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent);
   function estadoPush() {
+    if (S.modo === 'nube') return ['no', 'Aún no disponibles'];
     if (S.modo !== 'servidor') return ['demo', 'Con la app publicada'];
     if (!PUSH_OK()) return ['no', esIOS() ? 'Agrega la app a tu inicio' : 'No disponible'];
     if (Notification.permission === 'denied') return ['bloqueado', 'Bloqueadas'];
@@ -6197,14 +6407,21 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
   // ---------- Inicio ----------
   async function iniciar() {
     try {
-      // El HTML de un solo archivo (o abierto con doble clic) no tiene servidor: va directo a modo demo.
-      if (window.VG_SOLO_DEMO || location.protocol === 'file:') throw new Error('sin servidor');
-      const r = await fetch('api/ping', { cache: 'no-store' });
-      const d = r.ok ? await r.json() : null;
-      if (!d || !d.ok) throw new Error('sin servidor');
-      S.modo = 'servidor'; S.demo = !!d.demo;
-      // El service worker recibe las notificaciones aunque la app esté cerrada.
-      if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('sw.js').catch(() => {});
+      // Abierto con doble clic (file:) o con ?demo: modo demo. Publicada (GitHub Pages, etc.): Firebase.
+      if (location.protocol === 'file:' || /[?&]demo\b/.test(location.search)) throw new Error('sin servidor');
+      if (!/(^|\.)localhost$|^127\./.test(location.hostname) || /[?&]nube\b/.test(location.search)) {
+        // Si Firebase no carga (sin conexión), se reintenta al iniciar sesión.
+        S.modo = 'nube'; S.demo = false;
+        await Nube.iniciar().catch(() => {});
+      } else {
+        if (window.VG_SOLO_DEMO) throw new Error('sin servidor');
+        const r = await fetch('api/ping', { cache: 'no-store' });
+        const d = r.ok ? await r.json() : null;
+        if (!d || !d.ok) throw new Error('sin servidor');
+        S.modo = 'servidor'; S.demo = !!d.demo;
+        // El service worker recibe las notificaciones aunque la app esté cerrada.
+        if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('sw.js').catch(() => {});
+      }
     } catch (e) {
       S.modo = 'local'; S.demo = true; Local.cargar();
     }
@@ -6217,7 +6434,8 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
 
   // Con servidor, se buscan mensajes y cambios nuevos cada 15 segundos (sin interrumpir si hay una hoja abierta).
   setInterval(async () => {
-    if (S.modo !== 'servidor' || !S.view || !$('#modal').hidden || document.visibilityState !== 'visible' || (S.piz && S.piz.reproduciendo)) return;
+    if (S.modo === 'nube' && S.fotosNuevas && $('#modal').hidden) { S.fotosNuevas = false; render(); }
+    if (S.modo === 'local' || !S.view || !$('#modal').hidden || document.visibilityState !== 'visible' || (S.piz && S.piz.reproduciendo)) return;
     try {
       const v = await B().estado();
       if (v && JSON.stringify(v) !== JSON.stringify(S.apo || S.view)) {
@@ -6232,26 +6450,5 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
 })();
 
 </script>
-  <script type="module">
-  // Firebase (proyecto vieux-gaulois). La configuración web es pública por diseño;
-  // la seguridad de los datos se define con las reglas de Firebase.
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
-  import { getAnalytics, isSupported } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-analytics.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyC0WhmbtrvB6irfWP8Mz6p8e6lvrEfbuwA",
-    authDomain: "vieux-gaulois.firebaseapp.com",
-    projectId: "vieux-gaulois",
-    storageBucket: "vieux-gaulois.firebasestorage.app",
-    messagingSenderId: "610861505294",
-    appId: "1:610861505294:web:02f97139ea22026782955f",
-    measurementId: "G-ZMGJM5ZTXG"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  // Analytics no funciona en todos los navegadores (p. ej. abriendo el archivo local).
-  isSupported().then((ok) => { if (ok) getAnalytics(app); }).catch(() => {});
-  window.firebaseApp = app;
-  </script>
 </body>
 </html>

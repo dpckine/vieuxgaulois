@@ -1,0 +1,61 @@
+rules_version = '2';
+
+// Reglas de Firestore para Vieux Gaulois Handball (ver Nube en index.html).
+// Se pegan en Firebase: Firestore Database > Reglas > Publicar.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function ruta(c, id) { return /databases/$(database)/documents/$(c)/$(id); }
+    function cuenta() { return get(ruta('cuentas', request.auth.uid)).data; }
+    function acceso(id) { return get(ruta('acceso', id)).data; }
+
+    // Miembro: sesión de Firebase unida a un usuario del club, activo y con la clave vigente.
+    function miembro() {
+      return request.auth != null
+        && exists(ruta('cuentas', request.auth.uid))
+        && exists(ruta('acceso', cuenta().id))
+        && acceso(cuenta().id).activo == true
+        && acceso(cuenta().id).h == cuenta().h;
+    }
+    function rol() { return acceso(cuenta().id).rol; }
+
+    // La directiva gestiona todas las cuentas; los entrenadores, sólo jugadores y apoderados.
+    function gestiona(r) {
+      return rol() == 'directiva' || (rol() == 'entrenador' && r in ['jugador', 'apoderado']);
+    }
+
+    // Une la cuenta de Firebase con un usuario del club. Sólo si conoce la clave vigente (su hash).
+    match /cuentas/{uid} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['id', 'h'])
+        && exists(ruta('acceso', request.resource.data.id))
+        && acceso(request.resource.data.id).activo == true
+        && acceso(request.resource.data.id).h == request.resource.data.h;
+    }
+
+    // Hash de la clave, rol y estado de cada usuario. Nadie lo lee desde la app.
+    match /acceso/{id} {
+      allow read: if false;
+      // Primer uso: la cuenta inicial de la directiva, sólo mientras la base está vacía.
+      allow create: if (id == 'usr:vieux'
+          && !exists(ruta('club', 'meta'))
+          && request.resource.data.rol == 'directiva'
+          && request.resource.data.h == 'a6618b56c12983a6847705ed03e0f70a7d0ee37318b774ffae2d8ec0032dd2d8')
+        || (miembro() && gestiona(request.resource.data.rol));
+      allow update: if miembro() && (
+          (gestiona(resource.data.rol) && gestiona(request.resource.data.rol))
+          // Cada uno puede cambiar su propia clave.
+          || (cuenta().id == id && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['h'])));
+      allow delete: if false;
+    }
+
+    // Datos del club (club/meta y club/p0..pN) y fotos.
+    match /club/{doc} {
+      allow read, write: if miembro();
+    }
+    match /fotos/{id} {
+      allow read, write: if miembro();
+    }
+  }
+}
