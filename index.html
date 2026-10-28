@@ -697,7 +697,8 @@ body.sin-sesion .toast { bottom: calc(24px + var(--seguro-abajo)); }
 /* Credencial con aspecto de tarjeta de billetera digital (sólo se ve en la app). */
 /* Los colores (--f1..3 fondo, --g1/--g2 brillos, --etq etiquetas, --borde foto, --marco) vienen de TEMAS_CRED. */
 .credencial { position: relative; max-width: 360px; margin: 6px auto 0; border-radius: 22px; overflow: hidden; color: #fff; isolation: isolate;
-  background: radial-gradient(120% 70% at 100% 0%, var(--g1) 0%, transparent 55%), radial-gradient(90% 60% at 0% 100%, var(--g2) 0%, transparent 60%), linear-gradient(160deg, var(--f1) 0%, var(--f2) 55%, var(--f3) 100%);
+  background: radial-gradient(120% 70% at 100% 0%, var(--g1) 0%, transparent 55%), radial-gradient(90% 60% at 0% 100%, var(--g2) 0%, transparent 60%),
+    radial-gradient(80% 50% at 100% 100%, var(--g3, transparent) 0%, transparent 60%), radial-gradient(80% 50% at 0% 0%, var(--g4, transparent) 0%, transparent 60%), linear-gradient(160deg, var(--f1) 0%, var(--f2) 55%, var(--f3) 100%);
   box-shadow: 0 18px 40px -8px rgba(11, 26, 74, .55), 0 2px 6px rgba(11, 26, 74, .3), inset 0 0 0 var(--marco, 1px) rgba(255, 255, 255, .12), inset 0 0 0 var(--marco, 0) var(--borde); animation: cred-entra .5s cubic-bezier(.2, .8, .2, 1); }
 .credencial::before { content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none; background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, .22) 48%, rgba(255, 255, 255, .05) 55%, transparent 65%); background-size: 250% 100%; animation: cred-brillo 4.5s ease-in-out infinite; }
 .credencial::after { content: ""; position: absolute; z-index: -1; right: -60px; top: 30px; width: 240px; height: 250px; background: var(--escudo, url(escudo.png)) center/contain no-repeat; opacity: .09; transform: rotate(-12deg); pointer-events: none; }
@@ -5543,19 +5544,24 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
   // ---------- Credencial digital ----------
   /*
    * Cada credencial conserva los colores del club, pero con un tono distinto:
-   * menores (Mini, Infantil, Cadete) rojo; Juvenil, Junior, Espoirs y Master azul; Honor azul con mucho dorado;
-   * entrenadores azul, directiva rojo y apoderados dorado.
+   * menores (Mini, Infantil, Cadete) rojo con tintes azules; Juvenil, Junior, Espoirs y Master azul con rojo en la esquina;
+   * Honor azul con dorado fuerte, marco dorado y rojo abajo; entrenadores azul con rojo y dorado en las esquinas;
+   * directiva rojo con azul y dorado; apoderados dorado con azul y rojo.
+   * g = brillos de las esquinas: arriba derecha, abajo izquierda, abajo derecha, arriba izquierda.
    */
+  const AZUL_T = (a) => 'rgba(31,62,148,' + a + ')', ROJO_T = (a) => 'rgba(200,16,46,' + a + ')', ORO_T = (a) => 'rgba(232,177,33,' + a + ')';
   const TEMAS_CRED = {
-    azul: { f: ['#0B1A4A', '#14307A', '#0E2260'], g: ['rgba(232,177,33,.28)', 'rgba(200,16,46,.35)'], tarjeta: ['#1A3A8F', '#0C1C52'], etq: '#E8B121', borde: '#E8B121' },
-    rojo: { f: ['#4A0812', '#9E1229', '#5C0A17'], g: ['rgba(232,177,33,.32)', 'rgba(31,62,148,.5)'], tarjeta: ['#B5182F', '#5E0A18'], etq: '#F5C542', borde: '#E8B121' },
-    honor: { f: ['#0B1A4A', '#14307A', '#0E2260'], g: ['rgba(255,210,80,.78)', 'rgba(232,177,33,.62)'], tarjeta: ['#1C3A8A', '#0C1C52'], etq: '#FFD95C', borde: '#F7CF4D', marco: '2px' },
-    oro: { f: ['#3E2B04', '#9A6F12', '#5A3F07'], g: ['rgba(255,238,170,.42)', 'rgba(200,16,46,.32)'], tarjeta: ['#B38719', '#5A3F07'], etq: '#FFEAA6', borde: '#FFFFFF' },
+    azul: { f: ['#0B1A4A', '#14307A', '#0E2260'], g: [ORO_T(.28), ROJO_T(.35)], tarjeta: ['#1A3A8F', '#0C1C52'], etq: '#E8B121', borde: '#E8B121' },
+    rojo: { f: ['#4A0812', '#9E1229', '#5C0A17'], g: [AZUL_T(.6), AZUL_T(.6), '', AZUL_T(.3)], tarjeta: ['#B5182F', '#5E0A18'], etq: '#F5C542', borde: '#E8B121' },
+    honor: { f: ['#0B1A4A', '#14307A', '#0E2260'], g: ['rgba(255,210,80,.8)', ROJO_T(.5), ROJO_T(.45), ORO_T(.45)], tarjeta: ['#1C3A8A', '#0C1C52'], etq: '#FFD95C', borde: '#F7CF4D', marco: '2px' },
+    entrenador: { f: ['#0B1A4A', '#14307A', '#0E2260'], g: [ORO_T(.45), ROJO_T(.45), ORO_T(.3), ROJO_T(.35)], tarjeta: ['#1A3A8F', '#0C1C52'], etq: '#E8B121', borde: '#E8B121' },
+    directiva: { f: ['#4A0812', '#9E1229', '#5C0A17'], g: [ORO_T(.45), AZUL_T(.6), AZUL_T(.35), ORO_T(.3)], tarjeta: ['#B5182F', '#5E0A18'], etq: '#F5C542', borde: '#E8B121' },
+    oro: { f: ['#3E2B04', '#9A6F12', '#5A3F07'], g: [AZUL_T(.55), ROJO_T(.45), AZUL_T(.3), 'rgba(255,238,170,.35)'], tarjeta: ['#B38719', '#5A3F07'], etq: '#FFEAA6', borde: '#FFFFFF' },
   };
 
   function temaCredencial(u) {
-    if (u.rol === 'entrenador') return 'azul';
-    if (u.rol === 'directiva') return 'rojo';
+    if (u.rol === 'entrenador') return 'entrenador';
+    if (u.rol === 'directiva') return 'directiva';
     if (u.rol === 'apoderado') return 'oro';
     const b = C.baseCategoria(u.categoria);
     if (['Mini', 'Infantil', 'Cadete'].includes(b)) return 'rojo';
@@ -5565,13 +5571,13 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
   // Qué dice cada credencial: título sobre el nombre y los datos de abajo. Sin estado de cuotas (se muestra en comercios).
   function datosCredencial(u) {
     const rut = /^\d{7,8}-[\dkK]$/.test(u.rut || '') ? C.formatearRut(u.rut) : '';
-    if (u.rol === 'entrenador') return { titulo: 'Entrenador', rut, campos: [['Cargo', u.cargo && u.cargo !== 'Entrenador' ? u.cargo : 'Cuerpo técnico']] };
+    if (u.rol === 'entrenador') return { titulo: 'Entrenador', rut, campos: [['Cargo', 'Entrenador']] };
     if (u.rol === 'directiva') return { titulo: u.cargo || 'Directiva', rut, campos: [['Rol', 'Directiva']] };
     if (u.rol === 'apoderado') return { titulo: 'Apoderado', rut, campos: [['Apoderado de', (u.pupilos || []).join(', ') || '–']] };
     return { titulo: ramaCredencial(u) === 'Femenino' ? 'Jugadora' : 'Jugador', rut, numero: u.numero, campos: [['Categoría', C.baseCategoria(u.categoria) || '–'], ['N°', u.numero != null ? String(u.numero) : '–']] };
   }
   const ramaCredencial = (u) => C.ramaCategoria(u.categoria || '');
-  const estiloTema = (t) => '--f1:' + t.f[0] + ';--f2:' + t.f[1] + ';--f3:' + t.f[2] + ';--g1:' + t.g[0] + ';--g2:' + t.g[1] + ';--etq:' + t.etq + ';--borde:' + t.borde + (t.marco ? ';--marco:' + t.marco : '');
+  const estiloTema = (t) => '--f1:' + t.f[0] + ';--f2:' + t.f[1] + ';--f3:' + t.f[2] + t.g.map((c, i) => (c ? ';--g' + (i + 1) + ':' + c : '')).join('') + ';--etq:' + t.etq + ';--borde:' + t.borde + (t.marco ? ';--marco:' + t.marco : '');
 
   // La persona de una credencial: un usuario del club o, para el apoderado, él mismo (no viene en la lista de usuarios del hijo).
   function personaCredencial(rut) {
@@ -5625,7 +5631,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     fondo.addColorStop(0, tema.f[0]); fondo.addColorStop(0.5, tema.f[1]); fondo.addColorStop(1, tema.f[2]);
     g.fillStyle = fondo; g.fillRect(0, 0, W, H);
     g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(0, 0, W, H);
-    brillo(W, 0, 900, tema.g[0]); brillo(0, H, 1000, tema.g[1]);
+    [[W, 0, 900], [0, H, 1000], [W, H, 800], [0, 0, 700]].forEach(([x, y, r], i) => { if (tema.g[i]) brillo(x, y, r, tema.g[i]); });
     if (escudo) { g.save(); g.globalAlpha = 0.07; g.translate(W * 0.72, H * 0.52); g.rotate(-0.2); g.drawImage(escudo, -520, -560, 1040, 1120); g.restore(); }
     const franja = (x, y, w, hh) => [ROJO, ORO, CELESTE].forEach((c, i) => { g.fillStyle = c; g.fillRect(x + i * w / 3, y, w / 3 + 1, hh); });
 
