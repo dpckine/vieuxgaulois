@@ -544,6 +544,15 @@ table.tabla { width: 100%; border-collapse: collapse; font-size: 14px; }
 .avatar-chat { width: 44px; height: 44px; border-radius: 50%; flex: none; display: grid; place-items: center; font-weight: 700; font-size: 15px; background: var(--primario-cont); color: var(--sobre-primario-cont); }
 .avatar-chat.dir { background: var(--marca-azul); color: var(--marca-oro); box-shadow: inset 0 0 0 2px var(--marca-oro); }
 .lista .crece > small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lista .crece > small.completo { white-space: pre-line; overflow-wrap: anywhere; margin-top: 4px; }
+.enlace { color: var(--primario); font-weight: 600; text-decoration: underline; overflow-wrap: anywhere; }
+.uso-barra { height: 8px; border-radius: 4px; background: var(--sup-3); overflow: hidden; margin-top: 8px; }
+.uso-barra i { display: block; height: 100%; background: var(--primario); border-radius: 4px; }
+.uso-barra i.alto { background: var(--secundario); }
+.kpis.uso { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+.kpis.uso .kpi { padding: 10px 12px; box-shadow: none; background: var(--sup-2); }
+.kpis.uso .kpi b { font-size: 21px; }
+.kpi .uso-barra + small { text-transform: none; font-weight: 400; letter-spacing: 0; margin-top: 4px; }
 .chat-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; }
 .chat-meta small { font-size: 12px; }
 .btn-icono.atras { display: grid; place-items: center; width: 40px; height: 40px; margin-left: -8px; color: var(--primario); }
@@ -3361,11 +3370,14 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
 
   const Nube = {
     fb: null, id: null, h: null, db: null, rev: -1, fotos: {}, pidiendo: {}, escucha: null,
+    uso: { l: 0, e: 0, b: 0, s: 0 }, sesion: true,
 
     async iniciar() {
       const [app, auth, fs] = await Promise.all(['firebase-app.js', 'firebase-auth.js', 'firebase-firestore.js'].map((m) => import(FIREBASE_SDK + m)));
       const fapp = app.initializeApp(FIREBASE_CONFIG);
       this.fb = { auth: auth.getAuth(fapp), A: auth, F: fs, fs: fs.getFirestore(fapp) };
+      setInterval(() => this.guardarUso(), 120000);
+      document.addEventListener('visibilitychange', () => { if (document.hidden) this.guardarUso(); });
       import(FIREBASE_SDK + 'firebase-analytics.js').then((an) => an.isSupported().then((ok) => { if (ok) an.getAnalytics(fapp); })).catch(() => {});
       // Sesión guardada en este navegador.
       const user = await new Promise((r) => { const fin = auth.onAuthStateChanged(this.fb.auth, (u) => { fin(); r(u); }); });
@@ -3430,6 +3442,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
       if (!meta.exists()) return { db: null, rev: 0, partes: 0 };
       const { rev, partes } = meta.data();
       const trozos = await Promise.all(Array.from({ length: partes }, (_, i) => get(this.ref('club', 'p' + i))));
+      this.contar(1 + partes, 0, trozos.reduce((s, t) => s + (t.exists() ? t.data().d.length : 0), 200));
       if (trozos.some((t) => !t.exists() || t.data().rev !== rev)) { if (tx) throw new Error('lectura inconsistente'); return null; }
       return { db: JSON.parse(trozos.map((t) => t.data().d).join('')), rev, partes };
     },
@@ -3452,6 +3465,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     escuchar() {
       if (this.escucha) return;
       this.escucha = this.fb.F.onSnapshot(this.ref('club', 'meta'), async (s) => {
+        this.contar(1, 0, 200);
         if (!s.exists() || s.data().rev === this.rev) return;
         const r = await this.leer().catch(() => null);
         if (r && r.db && r.rev > this.rev) { this.db = C.migrar(r.db); this.rev = r.rev; }
@@ -3464,9 +3478,12 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
      */
     async cambiar(fn) {
       const F = this.fb.F;
-      let avisos = [];
+      let avisos = [], escritas = 0, subida = 0;
       try {
         const nuevo = await F.runTransaction(this.fb.fs, async (tx) => {
+          const set = tx.set.bind(tx);
+          escritas = 0; subida = 0;
+          tx.set = (ref, datos, op) => { escritas++; subida += JSON.stringify(datos).length; return set(ref, datos, op); };
           const r = await this.leer(tx);
           const antes = r.db ? C.migrar(r.db) : C.dbVacia();
           const db = C.clone(antes);
@@ -3500,7 +3517,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
           tx.set(this.ref('club', 'meta'), { rev, partes, actualizado: F.serverTimestamp(), por: this.id || '' });
           return { db, rev };
         });
-        if (nuevo) { this.db = nuevo.db; this.rev = nuevo.rev; }
+        if (nuevo) { this.db = nuevo.db; this.rev = nuevo.rev; this.contar(0, escritas, 0, subida); }
         // Notificaciones push (funciones de Vercel). Si no están configuradas, la acción igual queda guardada.
         if (nuevo && avisos.length) this.pedir('POST', 'api/push/enviar', { notificar: avisos.slice(0, 20) }).catch(() => {});
       } catch (e) {
@@ -3541,7 +3558,39 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
       return C.viewFor(this.db, this.id);
     },
 
+    /*
+     * Uso de datos (aprox.): lecturas y escrituras de Firestore, y lo que se baja y sube.
+     * Cada celular lo va sumando en trafico/{fecha} cada 2 minutos; la directiva lo ve en Ajustes.
+     */
+    contar(l, e, b, s) { const u = this.uso; u.l += l || 0; u.e += e || 0; u.b += b || 0; u.s += s || 0; },
+    async guardarUso() {
+      if (!this.id || !this.fb || !this.fb.auth.currentUser) return;
+      // Archivos de la app que midió el navegador (Firestore no informa su tamaño: se estima arriba).
+      if (window.performance && performance.getEntriesByType) {
+        performance.getEntriesByType('resource').forEach((r) => { this.uso.b += r.transferSize || 0; });
+        if (this.sesion) performance.getEntriesByType('navigation').forEach((r) => { this.uso.b += r.transferSize || 0; });
+        performance.clearResourceTimings();
+      }
+      const u = this.uso, sesion = this.sesion;
+      if (!u.l && !u.e && !u.b && !u.s) return;
+      this.uso = { l: 0, e: 0, b: 0, s: 0 }; this.sesion = false;
+      const F = this.fb.F, inc = F.increment, dia = new Date().toLocaleDateString('sv-SE');
+      await F.setDoc(this.ref('trafico', dia), {
+        lecturas: inc(u.l), escrituras: inc(u.e + 1), bajada: inc(u.b), subida: inc(u.s), sesiones: inc(sesion ? 1 : 0), por: { [this.id]: inc(u.b + u.s) },
+      }, { merge: true }).catch(() => {});
+    },
+
+    // Últimos días de trafico/ (sólo la directiva puede leerlos).
+    async leerUso(dias) {
+      await this.guardarUso();
+      const fechas = Array.from({ length: dias }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - i); return d.toLocaleDateString('sv-SE'); });
+      const docs = await Promise.all(fechas.map((dia) => this.fb.F.getDoc(this.ref('trafico', dia))));
+      this.contar(dias, 0, dias * 300);
+      return docs.map((s, i) => Object.assign({ dia: fechas[i] }, s.exists() ? s.data() : {}));
+    },
+
     async salir() {
+      await this.guardarUso();
       if (this.escucha) { this.escucha(); this.escucha = null; }
       this.id = null; this.h = null; this.db = null; this.rev = -1;
       if (this.fb) await this.fb.A.signOut(this.fb.auth).catch(() => {});
@@ -3553,6 +3602,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
       if (!this.pidiendo[id] && this.fb) {
         this.pidiendo[id] = true;
         this.fb.F.getDoc(this.ref('fotos', id)).then((s) => {
+          this.contar(1, 0, s.exists() ? s.data().d.length : 100);
           if (!s.exists()) return;
           this.fotos[id] = s.data().d;
           S.fotosNuevas = true;
@@ -3722,6 +3772,28 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
   const seccion = (titulo, cuerpo, derecha, pieTxt) => '<section class="seccion">' + (titulo ? '<div class="seccion-cab"><h2>' + h(titulo) + '</h2>' + (derecha || '') + '</div>' : '') +
     '<div class="tarjeta">' + cuerpo + '</div>' + (pieTxt ? '<p class="seccion-pie">' + pieTxt + '</p>' : '') + '</section>';
   const linkExterno = (url, txt, clase) => '<a class="btn ' + (clase || '') + '" href="' + h(url) + '" target="_blank" rel="noopener noreferrer">' + h(txt) + '</a>';
+
+  // Texto escapado con links, correos y teléfonos que se pueden tocar. Si el texto habla de WhatsApp, el teléfono abre WhatsApp.
+  function enlazar(txt) {
+    txt = String(txt == null ? '' : txt);
+    const wa = /whats?app|wsp/i.test(txt);
+    return txt.split(/(https?:\/\/[^\s<]+|www\.[^\s<]+|[\w.+-]+@[\w-]+\.[\w.-]+|\+?\d[\d ()-]{6,}\d)/i).map((p, i) => {
+      if (i % 2 === 0) return h(p);
+      const fin = (p.match(/[.,;:!?)]+$/) || [''])[0];
+      const t = fin ? p.slice(0, -fin.length) : p;
+      let url;
+      if (/^(https?:|www\.)/i.test(t)) url = /^www\./i.test(t) ? 'https://' + t : t;
+      else if (t.includes('@')) url = 'mailto:' + t;
+      else {
+        const d = t.replace(/\D/g, '');
+        // Sólo lo que parece teléfono (+..., 56..., 9 dígitos); no fechas ni RUT.
+        const tel = t.trim()[0] === '+' || /^56\d{9}$/.test(d) || (d.length === 9 && /^[2-9]/.test(d));
+        if (!tel || d.length > 15 || /^\d{7,8}-\d$/.test(t.trim())) return h(p);
+        url = wa && telWa(d) ? 'https://wa.me/' + telWa(d) : 'tel:' + (t.trim()[0] === '+' ? '+' : '') + d;
+      }
+      return '<a class="enlace" href="' + h(url) + '" target="_blank" rel="noopener noreferrer">' + h(t) + '</a>' + h(fin);
+    }).join('');
+  }
 
   function opcionesCategoria(sel, todas) {
     return (todas ? '<option value="">' + h(todas) + '</option>' : '') + (S.view.config.categoriasBase || []).map((b) => '<optgroup label="' + h(b) + '">' +
@@ -3962,7 +4034,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     const puede = esDir() || a.autor === S.view.yo;
     return '<article class="aviso-item' + (a.fijado ? ' fijado' : '') + '">' +
       '<div class="fila" style="gap:6px;margin-bottom:4px">' + (a.fijado ? insignia('Fijado', 'oro') : '') + insignia(a.categoria || 'Todo el club', a.categoria ? '' : 'azul') + '<small class="suave" style="margin-left:auto">' + h(fCorta(a.fecha)) + '</small></div>' +
-      '<h3>' + h(a.titulo) + '</h3>' + (a.texto && !compacto ? '<p>' + h(a.texto).replace(/\n/g, '<br>') + '</p>' : a.texto ? '<p class="corto">' + h(a.texto) + '</p>' : '') +
+      '<h3>' + h(a.titulo) + '</h3>' + (a.texto && !compacto ? '<p>' + enlazar(a.texto).replace(/\n/g, '<br>') + '</p>' : a.texto ? '<p class="corto">' + h(a.texto) + '</p>' : '') +
       (a.fechaEvento || a.lugar ? '<p class="aviso-evento">' + (a.fechaEvento ? '🗓️ ' + h(fLarga(a.fechaEvento)) + (a.hora ? ' · ' + h(a.hora) + ' hrs' : '') : '') + (a.lugar ? '<br>🏟️ ' + h(a.lugar) : '') + '</p>' : '') +
       (!compacto ? '<div class="fila" style="gap:8px;margin-top:8px">' + (a.link ? linkExterno(a.link, 'Abrir link', 'mini') : '') +
         '<small class="suave">' + h(autor ? autor.nombre : '') + '</small>' +
@@ -4766,8 +4838,8 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
 
   function itemConvenio(c, extra) {
     return '<li><span class="ico-celda c-convenios">' + icono('convenios') + '</span><div class="crece"><b>' + h(c.empresa) + '</b>' +
-      (c.beneficio ? '<span class="beneficio">' + h(c.beneficio) + '</span>' : '') + (c.detalle ? '<small>' + h(c.detalle) + '</small>' : '') +
-      (c.contacto ? '<small>Contacto: ' + h(c.contacto) + '</small>' : '') + (extra || '') + '</div></li>';
+      (c.beneficio ? '<span class="beneficio">' + h(c.beneficio) + '</span>' : '') + (c.detalle ? '<small class="completo">' + enlazar(c.detalle) + '</small>' : '') +
+      (c.contacto ? '<small class="completo">Contacto: ' + enlazar(c.contacto) + '</small>' : '') + (extra || '') + '</div></li>';
   }
 
   function itemPropuesta(c) {
@@ -4826,7 +4898,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
 
   function vistaAjustes() {
     const cfg = S.view.config;
-    return seccion('Precios de cuotas', '<form data-form="config" class="form-interno"><div class="campos">' + cfg.categoriasBase.map((b) => campo(b + ' (M y F)', '<input name="cuota_' + h(b) + '" type="number" min="0" step="500" inputmode="numeric" value="' + (cfg.cuotas[b] || 0) + '">')).join('') + '</div>' +
+    return seccionUso() + seccion('Precios de cuotas', '<form data-form="config" class="form-interno"><div class="campos">' + cfg.categoriasBase.map((b) => campo(b + ' (M y F)', '<input name="cuota_' + h(b) + '" type="number" min="0" step="500" inputmode="numeric" value="' + (cfg.cuotas[b] || 0) + '">')).join('') + '</div>' +
       '<div class="campos">' + campo('Monto federativo anual', input('montoFederativo', cfg.montoFederativo, 'type="number" min="0" step="500" inputmode="numeric"')) +
       campo('Día de vencimiento', input('diaVencimiento', cfg.diaVencimiento, 'type="number" min="1" max="28" inputmode="numeric"')) + '</div>' +
       '<p class="etiqueta">Meses que se cobran</p><div class="chequeos">' + C.MESES.map((m, i) => '<label class="chip"><input type="checkbox" name="mesesCobro[]" value="' + i + '"' + (cfg.mesesCobro.includes(i) ? ' checked' : '') + '><span>' + m + '</span></label>').join('') + '</div>' +
@@ -4841,6 +4913,47 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
       seccion('Categorías', '<form data-form="categorias" class="form-interno"><textarea class="entrada" name="categoriasBase" rows="8">' + h(cfg.categoriasBase.join('\n')) + '</textarea>' +
         '<button class="btn primario ancho" style="margin-top:12px">Guardar categorías</button></form>', '', 'Una por línea. Cada una se crea en rama Masculina y Femenina. Infantil, Cadete y Juvenil piden 1er o 2do año.') +
       (S.modo === 'local' ? seccion('Demo', '<button class="btn ancho peligro" data-act="reiniciarDemo">Reiniciar datos de ejemplo</button>', '', 'Borra los cambios hechos en este navegador.') : '');
+  }
+
+  // ---------- Uso de datos ----------
+  // Lo que gasta la app cada día (todos los celulares juntos), comparado con el plan gratis de Firebase.
+  const LIMITE_LECTURAS = 50000, LIMITE_ESCRITURAS = 20000, LIMITE_BAJADA_MES = 10 * 1024 ** 3;
+  const tamano = (b) => (b >= 1024 ** 3 ? (b / 1024 ** 3).toFixed(2).replace('.', ',') + ' GB' : b >= 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.round((b || 0) / 1024) + ' KB');
+  const miles = (n) => Number(n || 0).toLocaleString('es-CL');
+
+  function pedirUso() {
+    if (S.usoPidiendo) return;
+    S.usoPidiendo = true;
+    Nube.leerUso(14).then((dias) => { S.uso = { t: Date.now(), dias }; })
+      .catch((e) => { S.uso = { t: Date.now(), error: /permission/.test((e && e.code) || '') ? 'reglas' : 'red' }; })
+      .finally(() => { S.usoPidiendo = false; if (S.tab === 'ajustes' && $('#modal').hidden) render(); });
+  }
+
+  function seccionUso() {
+    const titulo = 'Uso de datos';
+    if (S.modo !== 'nube') return seccion(titulo, vacio('Se mide con la app publicada.'));
+    if (!S.uso || Date.now() - S.uso.t > 300000) pedirUso();
+    const act = btnTexto('Actualizar', 'actualizarUso');
+    if (!S.uso) return seccion(titulo, '<p class="suave">Cargando…</p>');
+    if (S.uso.error) return seccion(titulo, vacio(S.uso.error === 'reglas' ? 'Falta publicar las reglas nuevas de Firestore (archivo firestore.rules) para ver el uso.' : 'No se pudo leer el uso. Revisa la conexión.'), act);
+    const dias = S.uso.dias, hoy = dias[0];
+    const barra = (v, max) => { const p = Math.min(100, (v || 0) / max * 100); return '<div class="uso-barra"><i class="' + (p >= 80 ? 'alto' : '') + '" style="width:' + p.toFixed(1) + '%"></i></div>'; };
+    const kpi = (t, v, extra) => '<div class="kpi"><small>' + t + '</small><b>' + v + '</b>' + (extra || '') + '</div>';
+    const mes = hoy.dia.slice(0, 7);
+    const bajadaMes = dias.filter((d) => d.dia.startsWith(mes)).reduce((s, d) => s + (d.bajada || 0), 0);
+    const quien = Object.entries(hoy.por || {}).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    return seccion(titulo + ' · hoy',
+      '<div class="kpis uso">' +
+      kpi('Bajado', tamano(hoy.bajada)) + kpi('Subido', tamano(hoy.subida)) +
+      kpi('Lecturas', miles(hoy.lecturas), barra(hoy.lecturas, LIMITE_LECTURAS) + '<small class="suave">de ' + miles(LIMITE_LECTURAS) + ' al día</small>') +
+      kpi('Escrituras', miles(hoy.escrituras), barra(hoy.escrituras, LIMITE_ESCRITURAS) + '<small class="suave">de ' + miles(LIMITE_ESCRITURAS) + ' al día</small>') +
+      kpi('Entradas', miles(hoy.sesiones)) +
+      kpi('Bajado este mes', tamano(bajadaMes), barra(bajadaMes, LIMITE_BAJADA_MES) + '<small class="suave">de 10 GB al mes</small>') + '</div>' +
+      (quien.length ? '<p class="etiqueta">Quién gastó más hoy</p><ul class="lista">' + quien.map(([id, b]) => { const u = usuario(id); return '<li><div class="crece"><b>' + h(u ? u.nombre : id) + '</b></div><span class="valor">' + tamano(b) + '</span></li>'; }).join('') + '</ul>' : '') +
+      '<p class="etiqueta">Últimos 14 días</p><div class="tabla-envoltura"><table class="tabla"><thead><tr><th>Día</th><th class="num">Bajado</th><th class="num">Subido</th><th class="num">Lect.</th><th class="num">Escr.</th><th class="num">Entradas</th></tr></thead><tbody>' +
+      dias.map((d) => '<tr><td class="nombre">' + h(fCorta(d.dia)) + '</td><td class="num">' + tamano(d.bajada) + '</td><td class="num">' + tamano(d.subida) + '</td><td class="num">' + miles(d.lecturas) + '</td><td class="num">' + miles(d.escrituras) + '</td><td class="num">' + miles(d.sesiones) + '</td></tr>').join('') +
+      '</tbody></table></div>', act,
+      'Aproximado: suma lo que bajan y suben todos los celulares (datos del club, fotos y la app). El plan gratis de Firebase permite 50.000 lecturas y 20.000 escrituras al día, y 10 GB de descarga al mes; las barras se ponen rojas sobre el 80%.');
   }
 
   function seccionAutomaticos() {
@@ -6250,6 +6363,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     editarDocumento: (d) => abrirModal('Editar documento', formDocumento(S.view.documentos.find((x) => x.id === d.id)), (o) => accion('documento.guardar', Object.assign(o, { nuevaVersion: !!o.nuevaVersion }), 'Documento guardado')),
     borrarDocumento: (d) => { if (confirm('¿Eliminar este documento? Se pierden sus firmas.')) enviarConError(accion('documento.eliminar', { id: d.id }, 'Eliminado')); },
 
+    actualizarUso: () => { S.uso = null; render(); },
     // Convenios
     nuevoConvenio: () => abrirModal('Nuevo convenio', formConvenio(), (o) => accion('convenio.guardar', o, 'Convenio publicado')),
     editarConvenio: (d) => abrirModal('Editar convenio', formConvenio(S.view.convenios.find((c) => c.id === d.id)), (o) => accion('convenio.guardar', o, 'Guardado')),
