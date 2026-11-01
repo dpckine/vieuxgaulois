@@ -2058,6 +2058,41 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
   }
   const apoderadoSinRut = (u) => String(u && u.rut).startsWith('apo:');
 
+  /*
+   * Solicitud de ingreso desde la pantalla de entrada (sin sesión): los mismos datos que al inscribir un jugador.
+   * Queda pendiente hasta que la directiva la aprueba (se crea el jugador) o la rechaza.
+   */
+  function limpiarSolicitud(p, categorias) {
+    const rut = normalizarRut(p.rut);
+    if (!rut) throw err('RUT no válido');
+    const nombre = texto(p.nombre, 80);
+    if (!nombre) throw err('Indica el nombre completo');
+    if (!categorias.includes(p.categoria)) throw err('Elige la categoría');
+    if (!fechaValida(p.fechaNac)) throw err('Indica la fecha de nacimiento');
+    let anioCategoria = '';
+    if (llevaAnio(p.categoria)) {
+      anioCategoria = String(p.anioCategoria || '');
+      if (!['1', '2'].includes(anioCategoria)) throw err('Indica si es 1er o 2do año de ' + baseCategoria(p.categoria));
+    }
+    const numero = p.numero === '' || p.numero == null ? '' : String(num(p.numero, 0, 99));
+    const menorEdad = (edad(p.fechaNac) || 0) < 18;
+    const d = {
+      rut, nombre, categoria: p.categoria, anioCategoria, fechaNac: p.fechaNac, numero, posicion: POSICIONES.includes(p.posicion) ? p.posicion : '',
+      telefono: texto(p.telefono, 30), email: texto(p.email, 80),
+      apoderadoNombre: texto(p.apoderadoNombre, 80), apoderadoRut: '', apoderadoTelefono: texto(p.apoderadoTelefono, 30), apoderadoEmail: texto(p.apoderadoEmail, 80),
+      fecha: hoyISO(),
+    };
+    if (String(p.apoderadoRut || '').trim()) {
+      d.apoderadoRut = normalizarRut(p.apoderadoRut);
+      if (!d.apoderadoRut) throw err('RUT del apoderado no válido');
+      if (d.apoderadoRut === rut) throw err('El apoderado debe ser otra persona');
+    }
+    // El menor se habilita cuando su apoderado entra con su RUT y firma: sin RUT del apoderado no podría usar la app.
+    if (menorEdad && (!d.apoderadoNombre || !d.apoderadoRut || !d.apoderadoTelefono)) throw err('Es menor de 18: indica nombre, RUT y teléfono del apoderado');
+    if (!menorEdad && !d.telefono) throw err('Indica un teléfono de contacto');
+    return d;
+  }
+
   // Eliminar una cuenta la deja inactiva con el motivo (se conserva su historial de pagos y asistencia).
   const MOTIVOS_BAJA = ['Transferido', 'Renuncia', 'Otro'];
   function darDeBaja(u, p, actor) {
@@ -3229,7 +3264,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
   return {
     MESES, ROLES, POSICIONES,
     limpiarRut, dvRut, normalizarRut, formatearRut, claveInicial, rutDesdeCuerpo,
-    normalizarUsuario, idDeIngreso, textoHash, CUENTA_DIRECTIVA, convenioPublicado,
+    normalizarUsuario, idDeIngreso, textoHash, CUENTA_DIRECTIVA, convenioPublicado, limpiarSolicitud,
     hoyISO, sumarDias, edad, uid, clone,
     CATEGORIAS_BASE, RAMAS, CON_ANIO, armarCategorias, baseCategoria, ramaCategoria, llevaAnio, etiquetaCategoria,
     COMPROMISO_BECA, documentoAplica, firmaDe, documentosPendientes,
@@ -3324,6 +3359,9 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
 
   const Servidor = {
     token: leerLS('vg_token'),
+    async solicitar() { throw new ErrorApi('Las solicitudes de ingreso funcionan en la app publicada'); },
+    async solicitudes() { return []; },
+    async borrarSolicitud() {},
     async pedir(metodo, ruta, cuerpo) {
       const r = await fetch(ruta, {
         method: metodo,
@@ -3388,6 +3426,16 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     },
     async salir() { this.rut = null; guardarLS('vg_rut', null); },
     foto(id) { return (this.db.fotos || {})[id] || ''; },
+    // Solicitudes de ingreso de la demo: aparte de la base, en este navegador.
+    listaSolicitudes() { try { return JSON.parse(leerLS('vg_solicitudes')) || []; } catch (e) { return []; } },
+    async solicitar(d) {
+      if (this.db.usuarios.some((u) => u.rut === d.rut)) throw new ErrorApi('Ya existe un integrante del club con ese RUT');
+      const l = this.listaSolicitudes();
+      if (l.some((x) => x.rut === d.rut)) throw new ErrorApi('Ya hay una solicitud enviada con ese RUT');
+      l.push(d); guardarLS('vg_solicitudes', JSON.stringify(l));
+    },
+    async solicitudes() { return this.listaSolicitudes(); },
+    async borrarSolicitud(rut) { guardarLS('vg_solicitudes', JSON.stringify(this.listaSolicitudes().filter((x) => x.rut !== rut))); },
   };
 
   /*
@@ -3624,6 +3672,24 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
         lecturas: inc(u.l), escrituras: inc(u.e + 1), bajada: inc(u.b), subida: inc(u.s), sesiones: inc(sesion ? 1 : 0), por: { [this.id]: inc(u.b + u.s) },
       }, { merge: true }).catch(() => {});
     },
+
+    /*
+     * Solicitudes de ingreso: solicitudes/{rut}. Cualquiera puede crear una (sin sesión) si ese RUT no está en el club
+     * ni tiene ya una solicitud; sólo la directiva las lee y las borra (ver firestore.rules).
+     */
+    async solicitar(d) {
+      if (!this.fb) await this.iniciar();
+      try { await this.fb.F.setDoc(this.ref('solicitudes', d.rut), d); } catch (e) {
+        if (/permission-denied/.test(e.code || '')) throw new ErrorApi('Ese RUT ya pertenece al club o ya tiene una solicitud enviada. Si crees que es un error, escríbele a la directiva.');
+        throw this.error(e);
+      }
+    },
+    async solicitudes() {
+      const F = this.fb.F, s = await F.getDocs(F.collection(this.fb.fs, 'solicitudes'));
+      this.contar(Math.max(1, s.size), 0, s.size * 600);
+      return s.docs.map((x) => x.data());
+    },
+    async borrarSolicitud(rut) { await this.fb.F.deleteDoc(this.ref('solicitudes', rut)); this.contar(0, 1, 0, 50); },
 
     // Últimos días de trafico/ (sólo la directiva puede leerlos).
     async leerUso(dias) {
@@ -3928,8 +3994,65 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
       '<div class="error" id="login-error"></div>' +
       '<button class="btn primario ancho">Ingresar</button></form>' +
       '<p class="login-ayuda"><b>Jugadores y apoderados:</b> RUT y los 4 primeros dígitos del RUT.<br><b>Entrenadores y directiva:</b> usuario y clave entregados por la directiva.</p>' +
+      '<button type="button" class="btn ancho" data-act="solicitarIngreso">' + icono('mas2') + ' Quiero ser parte del club</button>' +
       (puedeInstalar() ? '<button type="button" class="btn ancho" data-act="instalarApp">' + icono('instalar') + ' Instalar la app en el celular</button>' : '') +
       demo + '</div></div>';
+  }
+
+  // ---------- Solicitudes de ingreso ----------
+  // Sin sesión no se leen las categorías del club: se ofrecen las de siempre y la directiva corrige al aprobar.
+  const categoriasSolicitud = () => (S.modo === 'local' && Local.db ? Local.db.config.categorias : C.armarCategorias(C.CATEGORIAS_BASE));
+
+  function formSolicitud() {
+    const cats = categoriasSolicitud();
+    const grupos = Array.from(new Set(cats.map(C.baseCategoria)));
+    return '<form id="form-modal"><p class="ayuda">Completa los datos del jugador o jugadora. La directiva revisa la solicitud y, si la aprueba, podrá entrar a la app con su RUT y los 4 primeros dígitos del RUT como clave.</p>' +
+      campo('RUT del jugador', input('rut', '', 'required placeholder="12.345.678-9" data-rut autocomplete="off"')) +
+      campo('Nombre completo', input('nombre', '', 'required maxlength="80" autocomplete="name"')) +
+      '<div class="campos">' +
+      campo('Categoría', '<select name="categoria" data-categoria required><option value="">Elegir…</option>' + grupos.map((b) => '<optgroup label="' + h(b) + '">' +
+        cats.filter((c) => C.baseCategoria(c) === b).map((c) => '<option value="' + h(c) + '">' + h(c) + '</option>').join('') + '</optgroup>').join('') + '</select>') +
+      campo('Año en la categoría', '<select name="anioCategoria"><option value="">Elegir…</option><option value="1">1er año</option><option value="2">2do año</option></select>', ' id="campo-anio" hidden') +
+      campo('Fecha de nacimiento', input('fechaNac', '', 'type="date" required')) +
+      campo('N° de camiseta (si tiene)', input('numero', '', 'type="number" min="0" max="99" inputmode="numeric"')) +
+      campo('Posición', '<select name="posicion"><option value="">–</option>' + opciones(C.POSICIONES, '') + '</select>') +
+      campo('Teléfono', input('telefono', '', 'type="tel" autocomplete="tel"')) +
+      campo('Email', input('email', '', 'type="email" autocomplete="email"')) +
+      '</div><p class="sub">Apoderado (obligatorio si es menor de 18)</p><p class="ayuda">El apoderado entra con su RUT y firma el consentimiento; así se activa la cuenta del menor.</p><div class="campos">' +
+      campo('Nombre del apoderado', input('apoderadoNombre', '', 'maxlength="80"')) + campo('RUT del apoderado', input('apoderadoRut', '', 'placeholder="12.345.678-9" data-rut')) +
+      campo('Teléfono', input('apoderadoTelefono', '', 'type="tel"')) + campo('Email', input('apoderadoEmail', '', 'type="email"')) + '</div>' +
+      pie('Enviar solicitud') + '</form>';
+  }
+
+  async function enviarSolicitud(o) {
+    const d = C.limpiarSolicitud(o, categoriasSolicitud());
+    await B().solicitar(d);
+    abrirModal('¡Solicitud enviada!', '<div class="vacio"><b>Gracias, ' + h(d.nombre.split(/\s+/)[0]) + '.</b><br>La directiva revisará tu solicitud. Cuando la apruebe podrás entrar con tu RUT y los 4 primeros dígitos del RUT como clave.</div>' +
+      '<div class="modal-pie columna"><button class="btn primario ancho" data-act="cerrarModal">Entendido</button></div>');
+    return false;
+  }
+
+  // La directiva ve las solicitudes pendientes en Jugadores (y un aviso en Inicio).
+  function pedirSolicitudes(forzar) {
+    if (!esDir() || S.pidiendoSol || (!forzar && S.solicitudes && Date.now() - S.solicitudes.t < 120000)) return;
+    S.pidiendoSol = true;
+    B().solicitudes().then((l) => { S.solicitudes = { t: Date.now(), lista: l.sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '')) }; })
+      .catch(() => { S.solicitudes = { t: Date.now(), lista: [], error: true }; })
+      .finally(() => { S.pidiendoSol = false; if ($('#modal').hidden && ['jugadores', 'inicio'].includes(S.tab)) render(); });
+  }
+  const solicitudesPendientes = () => { pedirSolicitudes(); return (S.solicitudes && S.solicitudes.lista) || []; };
+
+  function seccionSolicitudes() {
+    const l = solicitudesPendientes();
+    if (!l.length) return '';
+    return seccion('Solicitudes de ingreso (' + l.length + ')', '<ul class="lista">' + l.map((s) => {
+      const repetido = usuario(s.rut);
+      return '<li class="envolver"><span class="avatar-chat">' + h(iniciales(s.nombre)) + '</span><div class="crece"><b>' + h(s.nombre) + '</b>' +
+        '<small>' + h(C.formatearRut(s.rut)) + ' · ' + h(C.etiquetaCategoria(s)) + (s.posicion ? ' · ' + h(s.posicion) : '') + '</small>' +
+        '<small>Enviada el ' + h(fCorta(s.fecha)) + (s.apoderadoNombre ? ' · Apoderado: ' + h(s.apoderadoNombre) : '') + '</small>' +
+        '<div class="fila insignias">' + (repetido ? insignia('Ese RUT ya está en el club', 'mal') : '<button class="btn mini primario" data-act="revisarSolicitud" data-rut="' + h(s.rut) + '">Revisar y aprobar</button>') +
+        '<button class="btn mini peligro" data-act="rechazarSolicitud" data-rut="' + h(s.rut) + '">' + (repetido ? 'Descartar' : 'Rechazar') + '</button></div></div></li>';
+    }).join('') + '</ul>', '', 'Al aprobar se abre la ficha con sus datos para que la revises; se crea el jugador con clave inicial = 4 primeros dígitos del RUT.');
   }
 
   // ---------- Instalar la app (PWA) ----------
@@ -4151,7 +4274,9 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
     const mes = new Date().getMonth();
     const cumples = C.cumpleanosDelMes(S.view, mes, ANIO);
     const temporada = (S.view.cambiosTemporada || []).filter((x) => x.anio === ANIO && x.cambios.length).pop();
-    return hero + '<div class="kpis">' + kpis + '</div>' +
+    const sol = esDir() ? solicitudesPendientes().length : 0;
+    return hero + (sol ? '<div class="aviso info fila entre"><span><b>' + sol + '</b> solicitud' + (sol > 1 ? 'es' : '') + ' de ingreso por revisar.</span><button class="btn mini" data-act="tab" data-tab="jugadores">Revisar</button></div>' : '') +
+      '<div class="kpis">' + kpis + '</div>' +
       (temporada && leerLS('vg_temp_' + ANIO) !== '1' ? '<div class="aviso info fila entre"><span>Nueva temporada ' + ANIO + ': <b>' + temporada.cambios.length + '</b> jugadores subieron de año o de categoría automáticamente.</span><button class="btn mini" data-act="verTemporada">Ver cambios</button></div>' : '') +
       seccion('Lesiones y dolores sin revisar', nuevas.length ? '<ul class="lista">' + nuevas.map(itemLesion).join('') + '</ul>' : vacio('No hay reportes nuevos.'),
         nuevas.length ? btnTexto('Marcar revisado', 'lesionVistoTodo') : '') +
@@ -4180,16 +4305,18 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
         (sinFirma ? insignia(menor(j) ? 'Falta firma del apoderado' : 'Sin consentimiento', 'alerta') : '') + (menor(j) && !apoderados(j.rut).length ? insignia('Sin apoderado', 'mal') : '') + (cuentaEntrenador(j.rut) ? insignia('Entrenador', 'oro') : '') + (j.activo === false ? insignia('Eliminado' + (j.baja ? ' · ' + j.baja.motivo : ''), 'mal') : '') + '</div></div>' +
         '<span class="chevron">' + icono('flecha') + '</span></li>';
     }).join('');
-    return seg + '<div class="filtros"><input type="search" placeholder="Buscar por nombre o RUT" value="' + h(S.busqueda) + '" data-cambio="busqueda">' + filtroCategoria() +
+    return seg + (esDir() ? seccionSolicitudes() : '') + '<div class="filtros"><input type="search" placeholder="Buscar por nombre o RUT" value="' + h(S.busqueda) + '" data-cambio="busqueda">' + filtroCategoria() +
       (esDir() ? '<label class="chip"><input type="checkbox" data-cambio="verInactivos"' + (S.verInactivos ? ' checked' : '') + '><span>Ver eliminados</span></label>' : '') + '</div>' +
       seccion(lista.length + ' jugador' + (lista.length === 1 ? '' : 'es'), lista.length ? '<ul class="lista clic">' + filas + '</ul>' : vacio('No hay jugadores con ese filtro.'));
   }
 
-  function formJugador(j) {
+  // pre: datos de una solicitud de ingreso para precargar una inscripción nueva.
+  function formJugador(j, pre) {
     const nuevo = !j;
-    j = j || { categoria: S.filtroCat || S.view.config.categorias[0] };
+    j = j || pre || { categoria: S.filtroCat || S.view.config.categorias[0] };
     return '<form id="form-modal">' +
-      (nuevo ? campo('RUT', input('rut', '', 'required placeholder="12.345.678-9"')) + '<p class="ayuda">Su clave inicial serán los primeros 4 dígitos del RUT.</p>' : '<input type="hidden" name="rut" value="' + h(j.rut) + '">') +
+      (pre && !S.view.config.categorias.includes(pre.categoria) ? '<div class="aviso">Pidió "' + h(pre.categoria) + '", que no existe en el club: elige la categoría.</div>' : '') +
+      (nuevo ? campo('RUT', input('rut', pre ? C.formatearRut(pre.rut) : '', 'required placeholder="12.345.678-9"' + (pre ? ' readonly' : ''))) + '<p class="ayuda">Su clave inicial serán los primeros 4 dígitos del RUT.</p>' : '<input type="hidden" name="rut" value="' + h(j.rut) + '">') +
       campo('Nombre completo', input('nombre', j.nombre, 'required maxlength="80"')) +
       '<div class="campos">' +
       campo('Categoría', '<select name="categoria" data-categoria>' + opcionesCategoria(j.categoria) + '</select>') +
@@ -4201,7 +4328,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
       campo('Email', input('email', j.email, 'type="email"')) +
       (esDir() ? campo('Descuento / beca (%)', input('descuento', j.descuento || 0, 'type="number" min="0" max="100" inputmode="numeric"')) : '') +
       '</div>' +
-      (nuevo ? '<p class="sub">Apoderado (obligatorio si es menor de 18)</p>' + camposApoderado() +
+      (nuevo ? '<p class="sub">Apoderado (obligatorio si es menor de 18)</p>' + camposApoderado(null, pre) +
         '<p class="ayuda">Puedes agregar más apoderados después, desde la ficha del jugador. La cuenta del menor se habilita cuando un apoderado con RUT entra y firma el consentimiento.</p>' : '') +
       pie(nuevo ? 'Inscribir jugador' : 'Guardar') + '</form>';
   }
@@ -4210,11 +4337,14 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
   const todosApoderados = () => S.view.usuarios.filter((u) => u.rol === 'apoderado' && u.activo !== false).sort((a, b) => a.nombre.localeCompare(b.nombre));
 
   // Elegir un apoderado que ya existe o crear uno nuevo (basta el nombre; el RUT es para que pueda entrar).
-  function camposApoderado(excluir) {
+  function camposApoderado(excluir, pre) {
     const existentes = todosApoderados().filter((a) => !(excluir || []).includes(a.rut));
-    return (existentes.length ? campo('Apoderado', '<select name="apoderadoId" data-apo-elegir><option value="">Nuevo apoderado</option>' + existentes.map((a) => '<option value="' + h(a.rut) + '">' + h(a.nombre) + (C.apoderadoSinRut(a) ? ' (sin RUT)' : ' · ' + h(C.formatearRut(a.rut))) + '</option>').join('') + '</select>') : '') +
-      '<div class="campos" data-apo-nuevo>' + campo('Nombre del apoderado', input('apoderadoNombre', '', 'maxlength="80"')) + campo('RUT (opcional)', input('apoderadoRut', '', 'placeholder="12.345.678-9" data-rut')) +
-      campo('Teléfono', input('apoderadoTelefono', '', 'type="tel"')) + campo('Email', input('apoderadoEmail', '', 'type="email"')) + '</div>' +
+    pre = pre || {};
+    // Si la solicitud trae el RUT de un apoderado que ya está en el club, queda elegido.
+    const ya = pre.apoderadoRut && existentes.find((a) => a.rut === pre.apoderadoRut);
+    return (existentes.length ? campo('Apoderado', '<select name="apoderadoId" data-apo-elegir><option value="">Nuevo apoderado</option>' + existentes.map((a) => '<option value="' + h(a.rut) + '"' + (ya === a ? ' selected' : '') + '>' + h(a.nombre) + (C.apoderadoSinRut(a) ? ' (sin RUT)' : ' · ' + h(C.formatearRut(a.rut))) + '</option>').join('') + '</select>') : '') +
+      '<div class="campos" data-apo-nuevo' + (ya ? ' hidden' : '') + '>' + campo('Nombre del apoderado', input('apoderadoNombre', ya ? '' : pre.apoderadoNombre, 'maxlength="80"')) + campo('RUT (opcional)', input('apoderadoRut', ya ? '' : (pre.apoderadoRut ? C.formatearRut(pre.apoderadoRut) : ''), 'placeholder="12.345.678-9" data-rut')) +
+      campo('Teléfono', input('apoderadoTelefono', ya ? '' : pre.apoderadoTelefono, 'type="tel"')) + campo('Email', input('apoderadoEmail', ya ? '' : pre.apoderadoEmail, 'type="email"')) + '</div>' +
       '<p class="ayuda" data-apo-nuevo>Sin RUT queda creado sólo con el nombre. Para entrar a la app necesita su RUT: entra con él y los 4 primeros dígitos.</p>';
   }
 
@@ -6253,7 +6383,7 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
         '<div class="modal-pie columna"><button class="btn primario ancho" data-act="temporadaVista">Entendido</button></div>');
     },
     temporadaVista: () => { guardarLS('vg_temp_' + ANIO, '1'); cerrarModal(); render(); },
-    salir: async () => { cerrarModal(); await B().salir(); S.view = null; S.apo = null; S.sinHijos = null; S.tab = null; S.hilo = null; S.piz = null; S.borrador = {}; render(); },
+    salir: async () => { cerrarModal(); await B().salir(); S.view = null; S.solicitudes = null; S.apo = null; S.sinHijos = null; S.tab = null; S.hilo = null; S.piz = null; S.borrador = {}; render(); },
     rellenarDemo: (d) => {
       const f = $('#form-login');
       f.rut.value = d.usuario; f.clave.value = d.clave;
@@ -6275,6 +6405,28 @@ document.querySelector("link[rel=icon]").href = window.VG_ESCUDO;
 
     // Jugadores
     nuevoJugador: () => abrirModal('Inscribir jugador', formJugador(), (o) => accion('jugador.crear', o, 'Jugador inscrito')),
+    solicitarIngreso: () => abrirModal('Solicitud de ingreso', formSolicitud(), enviarSolicitud),
+    // Aprobar = inscribir con los datos de la solicitud (la directiva puede corregirlos) y borrar la solicitud.
+    revisarSolicitud: (d) => {
+      const s = solicitudesPendientes().find((x) => x.rut === d.rut);
+      if (!s) return;
+      abrirModal('Aprobar solicitud', formJugador(null, s), async (o) => {
+        if (!(await accion('jugador.crear', Object.assign(o, { rut: s.rut }), s.nombre + ' ya es parte del club'))) return false;
+        await B().borrarSolicitud(s.rut).catch(() => {});
+        S.solicitudes.lista = S.solicitudes.lista.filter((x) => x.rut !== s.rut);
+        render();
+        return true;
+      });
+    },
+    rechazarSolicitud: async (d) => {
+      const s = solicitudesPendientes().find((x) => x.rut === d.rut);
+      if (!s || !confirm('¿Rechazar y borrar la solicitud de ' + s.nombre + '?')) return;
+      try {
+        await B().borrarSolicitud(s.rut);
+        S.solicitudes.lista = S.solicitudes.lista.filter((x) => x.rut !== s.rut);
+        render(); toast('Solicitud eliminada');
+      } catch (e) { toast(e.message || 'No se pudo borrar', 'error'); }
+    },
     verJugador: (d) => abrirModal('Ficha del jugador', fichaJugador(d.rut)),
     editarJugador: (d) => abrirModal('Editar jugador', formJugador(usuario(d.rut)), (o) => accion('jugador.editar', o, 'Datos guardados')),
     misDatos: () => abrirModal('Datos de contacto', formMisDatos(yo()), (o) => accion('jugador.editar', o, 'Datos guardados')),

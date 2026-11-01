@@ -58,6 +58,27 @@ service cloud.firestore {
       allow read, write: if miembro();
     }
 
+    // Solicitudes de ingreso desde la pantalla de entrada (sin sesión). Una por RUT, y sólo si ese RUT no está ya en el club.
+    // Sólo la directiva las lee y las borra (al aprobar o rechazar).
+    function corto(d, k, max) { return !(k in d) || (d[k] is string && d[k].size() <= max); }
+    match /solicitudes/{rut} {
+      allow create: if rut.matches('^[0-9]{6,8}-[0-9kK]$')
+        && !exists(ruta('acceso', rut))
+        && request.resource.data.keys().hasAll(['rut', 'nombre', 'categoria', 'fechaNac', 'fecha'])
+        && request.resource.data.keys().hasOnly(['rut', 'nombre', 'categoria', 'anioCategoria', 'fechaNac', 'numero', 'posicion', 'telefono', 'email',
+             'apoderadoNombre', 'apoderadoRut', 'apoderadoTelefono', 'apoderadoEmail', 'fecha'])
+        && request.resource.data.rut == rut
+        && request.resource.data.nombre is string && request.resource.data.nombre.size() > 1
+        && corto(request.resource.data, 'nombre', 80) && corto(request.resource.data, 'categoria', 60)
+        && corto(request.resource.data, 'anioCategoria', 2) && corto(request.resource.data, 'fechaNac', 10)
+        && corto(request.resource.data, 'numero', 2) && corto(request.resource.data, 'posicion', 40)
+        && corto(request.resource.data, 'telefono', 30) && corto(request.resource.data, 'email', 80)
+        && corto(request.resource.data, 'apoderadoNombre', 80) && corto(request.resource.data, 'apoderadoRut', 12)
+        && corto(request.resource.data, 'apoderadoTelefono', 30) && corto(request.resource.data, 'apoderadoEmail', 80)
+        && corto(request.resource.data, 'fecha', 10);
+      allow read, delete: if miembro() && rol() == 'directiva';
+    }
+
     // Uso de datos por día: cada celular suma lo suyo; sólo la directiva lo ve.
     match /trafico/{dia} {
       allow read: if miembro() && rol() == 'directiva';
